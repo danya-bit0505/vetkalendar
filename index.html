@@ -1,0 +1,1797 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ВетКалендарь — сроки родов питомцев</title>
+
+<!-- Установка на домашний экран -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#3C6E47">
+<link rel="icon" href="favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ВетКалендарь">
+<meta name="mobile-web-app-capable" content="yes">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EDEAE0;
+    --surface:#FFFFFF;
+    --surface-2:#F5F2E8;
+    --ink:#22301E;
+    --ink-soft:#697161;
+    --ink-faint:#9AA192;
+    --green:#3C6E47;
+    --green-dark:#2A4E33;
+    --green-pale:#DCE6DA;
+    --gold:#C99A2E;
+    --gold-pale:#F2E3BC;
+    --rust:#A6462A;
+    --rust-pale:#F0DAD1;
+    --line:#DAD5C6;
+    --radius-sm:8px;
+    --radius:14px;
+    --radius-lg:20px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  h1,h2,h3,.display{font-family:'Fraunces',serif;}
+  .mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select,textarea{font-family:inherit;}
+
+  .shell{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);}
+
+  /* ---------- Topbar ---------- */
+  .topbar{
+    padding:18px 18px 14px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:var(--bg);z-index:10;
+  }
+  .topbar .brand{display:flex;align-items:center;gap:9px;}
+  .topbar .brand .mark{font-size:1.5rem;line-height:1;}
+  .topbar h1{margin:0;font-size:1.25rem;font-weight:600;letter-spacing:.2px;}
+  .topbar .sub{font-size:.72rem;color:var(--ink-soft);margin-top:1px;}
+  .topbar .back{
+    display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--ink);
+    font-size:.95rem;font-weight:500;padding:6px 2px;
+  }
+  .topbar .back svg{width:18px;height:18px;}
+  .topbar .title-block{display:flex;flex-direction:column;line-height:1.15;}
+  .topbar .title-block .kicker{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);}
+  .topbar .title-block h2{margin:0;font-size:1.1rem;font-weight:600;}
+  .topbar-actions{display:flex;gap:6px;}
+  .icon-btn{
+    width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--surface);
+    display:flex;align-items:center;justify-content:center;font-size:1rem;color:var(--ink-soft);
+  }
+  .icon-btn:active{background:var(--surface-2);}
+  .btn{
+    border:none;border-radius:10px;padding:10px 16px;font-size:.88rem;font-weight:600;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .btn-primary{background:var(--green);color:#fff;}
+  .btn-primary:active{background:var(--green-dark);}
+  .btn-ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line);}
+  .btn-danger{background:var(--surface);color:var(--rust);border:1px solid var(--rust-pale);}
+  .btn-block{width:100%;justify-content:center;}
+  .btn-sm{padding:7px 12px;font-size:.8rem;border-radius:8px;}
+
+  /* ---------- Content ---------- */
+  .content{flex:1;padding:16px;padding-bottom:90px;}
+  .empty-state{
+    text-align:center;padding:52px 20px;color:var(--ink-soft);
+  }
+  .empty-state .glyph{font-size:2.4rem;margin-bottom:10px;}
+  .empty-state p{font-size:.9rem;margin:0 0 18px;}
+
+  /* ---------- Pet cards ---------- */
+  .pet-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 14px 12px;margin-bottom:12px;position:relative;overflow:hidden;
+  }
+  .pet-card:active{background:var(--surface-2);}
+  .pet-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
+  .pet-id{display:flex;align-items:center;gap:9px;}
+  .pet-tag{
+    width:38px;height:38px;border-radius:10px;background:var(--green-pale);
+    display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0;
+  }
+  .pet-name{font-weight:600;font-size:1rem;}
+  .pet-species{font-size:.74rem;color:var(--ink-soft);}
+  .status-pill{
+    font-size:.68rem;font-weight:600;padding:3px 9px;border-radius:99px;white-space:nowrap;
+  }
+  .status-active{background:var(--green-pale);color:var(--green-dark);}
+  .status-due{background:var(--gold-pale);color:#8A6317;}
+  .status-overdue{background:var(--rust-pale);color:var(--rust);}
+  .status-none{background:var(--surface-2);color:var(--ink-faint);}
+  .pet-card .empty-line{font-size:.82rem;color:var(--ink-faint);margin:10px 0 2px;}
+
+  /* ---------- Gauge (signature element) ---------- */
+  .gauge-block{margin-top:10px;}
+  .gauge{position:relative;height:26px;border-radius:6px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden;}
+  .gauge.compact{height:18px;}
+  .gauge-window{position:absolute;top:0;bottom:0;background:var(--gold-pale);}
+  .gauge-fill{position:absolute;top:0;bottom:0;left:0;background:linear-gradient(90deg,var(--green-dark),var(--green));}
+  .gauge-ticks{position:absolute;inset:0;display:flex;}
+  .gauge-tick{flex:1;border-right:1px solid rgba(34,48,30,.09);}
+  .gauge-tick:last-child{border-right:none;}
+  .gauge-avg{position:absolute;top:-7px;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid var(--ink);transform:translateX(-50%);}
+  .gauge-foot{display:flex;justify-content:space-between;font-size:.72rem;color:var(--ink-soft);margin-top:6px;}
+  .gauge-foot .days-left{font-weight:600;color:var(--ink);}
+  .gauge-foot.overdue .days-left{color:var(--rust);}
+
+  /* ---------- Forms ---------- */
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;color:var(--ink-soft);}
+  .field .hint{font-size:.72rem;color:var(--ink-faint);margin-top:5px;}
+  .field input[type=text],.field input[type=date],.field select,.field textarea{
+    width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);
+    font-size:.92rem;color:var(--ink);
+  }
+  .field textarea{resize:vertical;min-height:70px;}
+  .field-row{display:flex;gap:10px;}
+  .field-row .field{flex:1;}
+  .checkbox-row{display:flex;align-items:center;gap:9px;margin-bottom:16px;}
+  .checkbox-row input{width:18px;height:18px;}
+  .checkbox-row label{font-size:.85rem;font-weight:500;}
+  .species-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .species-opt{
+    border:1px solid var(--line);border-radius:10px;padding:10px 4px;text-align:center;background:var(--surface);
+  }
+  .species-opt .g{font-size:1.3rem;display:block;margin-bottom:3px;}
+  .species-opt .l{font-size:.7rem;color:var(--ink-soft);}
+  .species-opt.sel{border-color:var(--green);background:var(--green-pale);}
+  .species-opt.sel .l{color:var(--green-dark);font-weight:600;}
+  .form-error{background:var(--rust-pale);color:var(--rust);font-size:.8rem;padding:9px 12px;border-radius:9px;margin-bottom:14px;}
+  .form-actions{display:flex;gap:10px;margin-top:22px;}
+  .form-actions .btn{flex:1;}
+
+  /* ---------- Section titles ---------- */
+  .section-title{
+    display:flex;align-items:center;justify-content:space-between;margin:22px 0 12px;
+  }
+  .section-title h3{margin:0;font-size:.95rem;font-weight:600;}
+  .section-title:first-child{margin-top:0;}
+
+  /* ---------- Pet page header ---------- */
+  .pet-hero{display:flex;align-items:center;gap:12px;padding:6px 2px 4px;}
+  .pet-hero .pet-tag{width:52px;height:52px;font-size:1.7rem;border-radius:14px;}
+  .pet-hero .nm{font-size:1.25rem;font-weight:600;}
+  .pet-hero .sp{font-size:.8rem;color:var(--ink-soft);margin-top:1px;}
+  .hero-actions{display:flex;gap:8px;margin:14px 0 4px;}
+
+  .preg-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:13px 14px;margin-bottom:10px;
+  }
+  .preg-card:active{background:var(--surface-2);}
+  .preg-card .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .preg-card .range{font-size:.9rem;font-weight:600;}
+  .preg-card .meta{font-size:.76rem;color:var(--ink-soft);}
+
+  /* ---------- Pregnancy detail ---------- */
+  .key-dates{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px;}
+  .key-date{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 8px;text-align:center;}
+  .key-date .lbl{font-size:.66rem;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+  .key-date .val{font-size:.86rem;font-weight:600;}
+  .key-date.avg{border-color:var(--green);background:var(--green-pale);}
+
+  .overdue-banner{
+    background:var(--rust-pale);color:var(--rust);border-radius:10px;padding:11px 13px;
+    font-size:.84rem;font-weight:600;margin-top:14px;display:flex;align-items:center;gap:8px;
+  }
+  .correction-note{
+    background:var(--green-pale);color:var(--green-dark);border-radius:10px;padding:10px 12px;
+    font-size:.78rem;margin-top:10px;line-height:1.4;
+  }
+  .hint{font-size:.72rem;color:var(--ink-faint);}
+
+  /* ---------- Температура ---------- */
+  .temp-add-form{display:flex;gap:8px;margin-top:12px;}
+  .temp-add-form input[type=datetime-local]{flex:1.6;padding:9px 8px;border:1px solid var(--line);border-radius:8px;font-size:.76rem;background:var(--surface);color:var(--ink);}
+  .temp-add-form input[type=number]{width:64px;padding:9px 8px;border:1px solid var(--line);border-radius:8px;font-size:.82rem;background:var(--surface);color:var(--ink);}
+  .temp-list{margin-top:8px;}
+  .temp-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--line);font-size:.8rem;}
+  .temp-row .icon-btn{width:26px;height:26px;font-size:.7rem;flex-shrink:0;}
+
+  /* ---------- Приплод / история ---------- */
+  .weight-row{display:flex;gap:8px;margin-bottom:8px;}
+  .weight-row input{flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:9px;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .chip{background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:4px 10px;font-size:.76rem;font-family:'IBM Plex Mono',monospace;}
+  .diff-badge{font-size:.68rem;font-weight:600;padding:3px 9px;border-radius:99px;background:var(--surface-2);color:var(--ink-soft);white-space:nowrap;}
+  .birth-summary{text-align:center;}
+  .birth-summary .k{font-size:.7rem;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;}
+  .birth-summary .d{font-family:'Fraunces',serif;font-size:1.35rem;font-weight:600;margin:4px 0 6px;}
+
+  /* ---------- Calendar widget ---------- */
+  .cal-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-top:18px;}
+  .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .cal-nav .lbl{font-weight:600;font-size:.92rem;text-transform:capitalize;}
+  .cal-nav button{background:var(--surface-2);border:1px solid var(--line);width:30px;height:30px;border-radius:8px;font-size:.9rem;}
+  .cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px;}
+  .cal-weekdays span{text-align:center;font-size:.66rem;color:var(--ink-faint);font-weight:600;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+  .cal-cell{
+    aspect-ratio:1;display:flex;align-items:center;justify-content:center;position:relative;
+    font-size:.78rem;border-radius:7px;color:var(--ink);
+  }
+  .cal-cell.pad{color:var(--ink-faint);opacity:.4;}
+  .cal-cell.window{background:var(--gold-pale);}
+  .cal-cell.mating{box-shadow:inset 0 0 0 2px var(--green);}
+  .cal-cell.avg{background:var(--green);color:#fff;font-weight:700;}
+  .cal-cell.today{box-shadow:inset 0 0 0 2px var(--ink);}
+  .cal-cell.trip-day{box-shadow:inset 0 0 0 2px var(--gold);}
+  .cal-cell.finder-good{background:var(--green-pale);color:var(--green-dark);font-weight:600;cursor:pointer;}
+  .cal-cell.finder-bad{background:var(--rust-pale);color:var(--rust);font-weight:600;cursor:pointer;}
+  .cal-cell.finder-good:active,.cal-cell.finder-bad:active{opacity:.7;}
+  .cal-cell .dot{position:absolute;bottom:2px;width:4px;height:4px;border-radius:50%;background:var(--rust);}
+  .cal-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:.7rem;color:var(--ink-soft);}
+  .cal-legend .li{display:flex;align-items:center;gap:5px;}
+  .cal-legend .sw{width:10px;height:10px;border-radius:3px;}
+  .sw-window{background:var(--gold-pale);}
+  .sw-mating{background:var(--surface);box-shadow:inset 0 0 0 2px var(--green);}
+  .sw-avg{background:var(--green);}
+  .sw-dot{background:var(--rust);border-radius:50%;width:6px;height:6px;margin:2px;}
+
+  /* ---------- Поездки ---------- */
+  .trip-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);}
+  .trip-item:last-child{border-bottom:none;}
+  .ti-title{font-size:.88rem;font-weight:600;}
+  .ti-dates{font-size:.76rem;color:var(--ink-soft);margin-top:2px;}
+  .ti-actions{display:flex;gap:6px;}
+
+  /* ---------- Checklist ---------- */
+  .checklist-item{
+    display:flex;align-items:flex-start;gap:11px;padding:11px 0;border-bottom:1px solid var(--line);
+  }
+  .checklist-item:last-child{border-bottom:none;}
+  .checklist-item input{width:19px;height:19px;margin-top:1px;accent-color:var(--green);flex-shrink:0;}
+  .checklist-item .txt{flex:1;}
+  .checklist-item .lbl{font-size:.87rem;font-weight:500;}
+  .checklist-item .dt{font-size:.74rem;color:var(--ink-soft);margin-top:2px;}
+  .checklist-item.done .lbl{text-decoration:line-through;color:var(--ink-faint);}
+  .checklist-item.overdue .dt{color:var(--rust);font-weight:600;}
+  .checklist-item.today .dt{color:#8A6317;font-weight:600;}
+
+  .notes-box{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 13px;font-size:.85rem;color:var(--ink-soft);white-space:pre-wrap;margin-top:8px;}
+
+  /* ---------- Bottom nav ---------- */
+  .bottomnav{
+    position:fixed;bottom:0;left:0;right:0;
+    background:var(--surface);border-top:1px solid var(--line);
+    display:flex;max-width:520px;margin:0 auto;
+  }
+  .bottomnav button{
+    flex:1;background:none;border:none;padding:11px 6px 9px;display:flex;flex-direction:column;
+    align-items:center;gap:3px;font-size:.68rem;color:var(--ink-faint);font-weight:600;
+  }
+  .bottomnav button .ic{font-size:1.15rem;}
+  .bottomnav button.active{color:var(--green-dark);}
+
+  @media (min-width:521px){
+    body{background:var(--surface-2);}
+    .shell{box-shadow:0 0 0 1px var(--line);}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar" id="topbar"></header>
+  <main class="content" id="app"></main>
+  <nav class="bottomnav">
+    <button data-action="nav-list" id="nav-list-btn"><span class="ic">🐾</span>Питомцы</button>
+    <button data-action="nav-calendar" id="nav-cal-btn"><span class="ic">📅</span>Календарь</button>
+    <button data-action="nav-settings" id="nav-settings-btn"><span class="ic">⚙️</span>Настройки</button>
+  </nav>
+</div>
+
+<script>
+/* =========================================================
+   ПРИПЛОД — данные о видах, чек-листы, утилиты дат
+   ========================================================= */
+const SPECIES = {
+  dog:  { label:'Собака', icon:'🐕', min:58,  max:68,  avg:63  },
+  cat:  { label:'Кошка',  icon:'🐈', min:58,  max:67,  avg:63  },
+  goat: { label:'Коза',   icon:'🐐', min:145, max:155, avg:150 },
+  cow:  { label:'Корова', icon:'🐄', min:279, max:290, avg:283 },
+  pig:  { label:'Свинья', icon:'🐖', min:112, max:115, avg:114 },
+};
+const SPECIES_ORDER = ['dog','cat','goat','cow','pig'];
+
+const MONTHS_RU = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const MONTHS_RU_NOM = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const MONTHS_RU_SHORT = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+const WEEKDAYS_RU = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const ACCENTS = ['#3C6E47','#A6462A','#C99A2E','#4C6B8A','#7D4F9A','#B5533C'];
+
+function parseDate(str){
+  const [y,m,d] = str.split('-').map(Number);
+  return new Date(Date.UTC(y, m-1, d));
+}
+function toInputValue(date){ return date.toISOString().slice(0,10); }
+function addDays(date,n){ const d=new Date(date); d.setUTCDate(d.getUTCDate()+n); return d; }
+function diffDays(a,b){ return Math.round((b.getTime()-a.getTime())/86400000); }
+function todayUTC(){ const t=new Date(); return new Date(Date.UTC(t.getFullYear(),t.getMonth(),t.getDate())); }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function formatDateLong(date){ return `${date.getUTCDate()} ${MONTHS_RU[date.getUTCMonth()]} ${date.getUTCFullYear()}`; }
+function formatDateShort(date){ return `${date.getUTCDate()} ${MONTHS_RU_SHORT[date.getUTCMonth()]}`; }
+function pluralDays(n){
+  n = Math.abs(Math.round(n)) % 100;
+  const n1 = n % 10;
+  if(n>10 && n<20) return 'дней';
+  if(n1>1 && n1<5) return 'дня';
+  if(n1===1) return 'день';
+  return 'дней';
+}
+
+// Чек-лист по видам: offset считается от даты начала окна родов (minDate) или от даты вязки (matingStart)
+function getChecklist(speciesKey, pred){
+  const items = [];
+  const base = pred.matingStart;
+  const minDate = pred.minDate;
+  if(speciesKey==='dog' || speciesKey==='cat'){
+    items.push({key:'usi',  label:'УЗИ / осмотр у ветеринара',            date: addDays(base, 28)});
+    items.push({key:'nest', label:'Подготовить гнездо / место для родов', date: addDays(minDate, -7)});
+    items.push({key:'temp', label:'Начать контроль температуры',          date: addDays(minDate, -5)});
+  } else if(speciesKey==='goat'){
+    items.push({key:'vac',   label:'Вакцинация перед окотом',            date: addDays(minDate, -21)});
+    items.push({key:'pen',   label:'Подготовить отдельный денник',       date: addDays(minDate, -10)});
+    items.push({key:'udder', label:'Контроль вымени',                    date: addDays(minDate, -7)});
+  } else if(speciesKey==='cow'){
+    items.push({key:'vac',   label:'Вакцинация перед отёлом',            date: addDays(minDate, -21)});
+    items.push({key:'pen',   label:'Подготовить отдельное стойло',       date: addDays(minDate, -14)});
+    items.push({key:'udder', label:'Контроль вымени',                    date: addDays(minDate, -7)});
+  } else if(speciesKey==='pig'){
+    items.push({key:'vac',  label:'Вакцинация перед опоросом',                 date: addDays(minDate, -21)});
+    items.push({key:'pen',  label:'Подготовить денник (правило «3-3-3»)',      date: addDays(minDate, -9)});
+    items.push({key:'temp', label:'Начать контроль температуры',                date: addDays(minDate, -3)});
+  }
+  return items;
+}
+
+// Расчёт прогноза родов для конкретной вязки.
+// correction (опционально) — сдвиг окна в днях на основе личной истории питомца или породы.
+function computePrediction(preg, speciesKey, correction){
+  const s = SPECIES[speciesKey];
+  const matingStart = parseDate(preg.matingStart);
+  const matingEnd = preg.matingEnd ? parseDate(preg.matingEnd) : matingStart;
+  const midDate = new Date((matingStart.getTime() + matingEnd.getTime())/2);
+  const offset = correction ? correction.offsetDays : 0;
+  const minDate = addDays(addDays(matingStart, s.min), offset);
+  const maxDate = addDays(addDays(matingEnd, s.max), offset);
+  const avgDate = addDays(addDays(midDate, s.avg), offset);
+  const today = todayUTC();
+  const domainDays = Math.max(1, diffDays(matingStart, maxDate));
+  const elapsedRaw = diffDays(matingStart, today);
+  const elapsed = clamp(elapsedRaw, 0, domainDays);
+  const progressPct = clamp(elapsed / domainDays * 100, 0, 100);
+  const overdue = today.getTime() > maxDate.getTime();
+  const inWindow = today.getTime() >= minDate.getTime() && today.getTime() <= maxDate.getTime();
+  const daysLeft = diffDays(today, avgDate);
+  const daysOverdue = overdue ? diffDays(maxDate, today) : 0;
+  return { matingStart, matingEnd, minDate, maxDate, avgDate, today, progressPct, overdue, inWindow, daysLeft, daysOverdue, s, correction: correction||null };
+}
+
+// Наблюдаемая длительность беременности (дней от начала вязки до факта родов)
+function getGestationDays(preg){
+  if(!preg.actualBirthDate) return null;
+  return diffDays(parseDate(preg.matingStart), parseDate(preg.actualBirthDate));
+}
+
+// Личная коррекция: среднее отклонение по собственным завершённым родам питомца (нужно 2+)
+function getPersonalCorrection(pet, excludePregId){
+  const s = SPECIES[pet.species];
+  const samples = pet.pregnancies
+    .filter(p=>p.actualBirthDate && p.id!==excludePregId)
+    .map(getGestationDays);
+  if(samples.length < 2) return null;
+  const avgObserved = samples.reduce((a,b)=>a+b,0)/samples.length;
+  const maxShift = Math.round((s.max - s.min)/2);
+  const offset = clamp(Math.round(avgObserved - s.avg), -maxShift, maxShift);
+  return { offsetDays: offset, source: 'personal', sampleSize: samples.length };
+}
+
+// Коррекция по породе: среднее отклонение по всем питомцам того же вида с такой же породой (нужно 2+ суммарно)
+function getBreedCorrection(pet){
+  if(!pet.breed || !pet.breed.trim()) return null;
+  const s = SPECIES[pet.species];
+  const breedKey = pet.breed.trim().toLowerCase();
+  const samples = [];
+  state.data.pets.forEach(p=>{
+    if(p.species !== pet.species) return;
+    if(!p.breed || p.breed.trim().toLowerCase() !== breedKey) return;
+    p.pregnancies.forEach(pr=>{ if(pr.actualBirthDate) samples.push(getGestationDays(pr)); });
+  });
+  if(samples.length < 2) return null;
+  const avgObserved = samples.reduce((a,b)=>a+b,0)/samples.length;
+  const maxShift = Math.round((s.max - s.min)/2);
+  const offset = clamp(Math.round(avgObserved - s.avg), -maxShift, maxShift);
+  return { offsetDays: offset, source: 'breed', sampleSize: samples.length, breed: pet.breed.trim() };
+}
+
+function getPredictionCorrection(pet, excludePregId){
+  return getPersonalCorrection(pet, excludePregId) || getBreedCorrection(pet) || null;
+}
+
+// Прогноз для активной вязки с учётом персональной/породной адаптации
+function predictFor(pet, preg){
+  const correction = getPredictionCorrection(pet, preg.id);
+  return computePrediction(preg, pet.species, correction);
+}
+
+/* =========================================================
+   Поездки и анализ удачной даты вязки
+   ========================================================= */
+// Прогноз родов для гипотетической даты вязки (используется для проверки конфликтов и подбора даты)
+function previewPrediction(pet, matingStart, matingEnd){
+  const fakePreg = { matingStart, matingEnd: matingEnd || matingStart, id: '__preview__' };
+  const correction = getPredictionCorrection(pet, '__preview__');
+  return computePrediction(fakePreg, pet.species, correction);
+}
+
+// Список поездок, пересекающихся с окном [minDate, maxDate]
+function tripsOverlapping(minDate, maxDate){
+  return (state.data.trips||[]).filter(tr=>{
+    const ts = parseDate(tr.startDate), te = parseDate(tr.endDate);
+    return minDate.getTime() <= te.getTime() && maxDate.getTime() >= ts.getTime();
+  });
+}
+
+function isTripDay(dStr){
+  return (state.data.trips||[]).some(tr=> dStr>=tr.startDate && dStr<=tr.endDate);
+}
+
+/* =========================================================
+   GitHub-синхронизация (бэкап для одного устройства)
+   ========================================================= */
+const GH_CONFIG_KEY = 'vetcal_gh_config';
+const GH_LAST_SYNC_KEY = 'vetcal_gh_last_sync';
+
+function b64EncodeUnicode(str){
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (m,p1)=>String.fromCharCode(parseInt(p1,16))));
+}
+function b64DecodeUnicode(str){
+  return decodeURIComponent(atob(str).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+}
+
+function getGithubConfig(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(GH_CONFIG_KEY));
+    if(raw && raw.token && raw.repo) return raw;
+  }catch(e){}
+  return null;
+}
+function saveGithubConfig(cfg){ localStorage.setItem(GH_CONFIG_KEY, JSON.stringify(cfg)); }
+
+function setSyncStatus(s, message){
+  state.syncStatus = { state: s, message: message||'' };
+  if(state.view==='settings') render();
+}
+
+async function githubGetFile(cfg){
+  const url = `https://api.github.com/repos/${cfg.repo}/contents/${encodeURIComponent(cfg.path)}?ref=${encodeURIComponent(cfg.branch||'main')}`;
+  const res = await fetch(url, { headers: { 'Authorization': `token ${cfg.token}`, 'Accept':'application/vnd.github+json' } });
+  if(res.status===404) return null;
+  if(!res.ok) throw new Error('GitHub: ошибка чтения (' + res.status + ')');
+  return res.json();
+}
+
+async function githubPutFile(cfg, dataObj, sha){
+  const url = `https://api.github.com/repos/${cfg.repo}/contents/${encodeURIComponent(cfg.path)}`;
+  const body = {
+    message: 'ВетКалендарь: обновление данных ' + new Date().toISOString(),
+    content: b64EncodeUnicode(JSON.stringify(dataObj, null, 2)),
+    branch: cfg.branch || 'main',
+  };
+  if(sha) body.sha = sha;
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Authorization': `token ${cfg.token}`, 'Accept':'application/vnd.github+json', 'Content-Type':'application/json' },
+    body: JSON.stringify(body)
+  });
+  if(!res.ok){ const t = await res.text().catch(()=> ''); throw new Error('GitHub: ошибка записи (' + res.status + ') ' + t.slice(0,180)); }
+  return res.json();
+}
+
+let githubPushTimer = null;
+function scheduleGithubPush(){
+  if(!getGithubConfig()) return;
+  clearTimeout(githubPushTimer);
+  githubPushTimer = setTimeout(()=>{ pushToGithub(); }, 4000);
+}
+
+async function pushToGithub(){
+  const cfg = getGithubConfig();
+  if(!cfg) return;
+  try{
+    setSyncStatus('saving');
+    let sha = state.githubSha;
+    if(!sha){
+      const file = await githubGetFile(cfg);
+      sha = file ? file.sha : null;
+    }
+    const result = await githubPutFile(cfg, state.data, sha);
+    state.githubSha = result.content.sha;
+    localStorage.setItem(GH_LAST_SYNC_KEY, new Date().toISOString());
+    setSyncStatus('ok');
+  }catch(err){
+    setSyncStatus('error', err.message);
+  }
+}
+
+async function pullFromGithub(){
+  const cfg = getGithubConfig();
+  if(!cfg) return { ok:false, message:'GitHub не настроен.' };
+  try{
+    const file = await githubGetFile(cfg);
+    if(!file) return { ok:false, message:'Файл в репозитории ещё не создан — сначала сохраните данные кнопкой «Сохранить в GitHub».' };
+    const text = b64DecodeUnicode(file.content.replace(/\n/g,''));
+    const parsed = JSON.parse(text);
+    if(!parsed || !Array.isArray(parsed.pets)) return { ok:false, message:'Файл повреждён или пуст.' };
+    state.data = parsed;
+    state.githubSha = file.sha;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+    localStorage.setItem(GH_LAST_SYNC_KEY, new Date().toISOString());
+    return { ok:true };
+  }catch(err){
+    return { ok:false, message: err.message };
+  }
+}
+
+function exportBackup(){
+  const blob = new Blob([JSON.stringify(state.data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `vetkalendar-backup-${toInputValue(todayUTC())}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* =========================================================
+   Хранилище
+   ========================================================= */
+const STORAGE_KEY = 'priplod_data_v1';
+function loadData(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if(raw && Array.isArray(raw.pets)){
+      if(!Array.isArray(raw.trips)) raw.trips = [];
+      return raw;
+    }
+  }catch(e){}
+  return { pets: [], trips: [] };
+}
+function saveData(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+  scheduleGithubPush();
+}
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+/* =========================================================
+   Состояние приложения
+   ========================================================= */
+const state = {
+  data: loadData(),
+  view: 'list', // list | petForm | petPage | pregForm | pregDetail | litterForm | calendarAll | settings | matingFinder | tripForm
+  returnView: 'list',
+  currentPetId: null,
+  currentPregId: null,
+  editingPetId: null,
+  editingPregId: null,
+  editingTripId: null,
+  pendingMatingDate: null,
+  formError: '',
+  detailCalYear: null,
+  detailCalMonth: null,
+  allCalYear: null,
+  allCalMonth: null,
+  finderCalYear: null,
+  finderCalMonth: null,
+  calendarAllHidden: new Set(),
+  githubSha: null,
+  syncStatus: null,
+};
+
+function goto(view, extra){
+  state.returnView = state.view;
+  if(extra) Object.assign(state, extra);
+  state.view = view;
+  state.formError = '';
+  render();
+}
+
+function findPet(id){ return state.data.pets.find(p=>p.id===id); }
+function findPreg(pet, id){ return pet ? pet.pregnancies.find(p=>p.id===id) : null; }
+function activePregOf(pet){
+  const open = pet.pregnancies.filter(p=>!p.actualBirthDate);
+  if(!open.length) return null;
+  return open.slice().sort((a,b)=> b.matingStart.localeCompare(a.matingStart))[0];
+}
+
+/* =========================================================
+   Рендер: топбар
+   ========================================================= */
+const backIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>`;
+
+function renderTopbar(){
+  const tb = document.getElementById('topbar');
+  if(state.view==='list'){
+    tb.innerHTML = `
+      <div class="brand"><span class="mark">🩺</span><div><h1>ВетКалендарь</h1><div class="sub">Сроки родов питомцев</div></div></div>
+      <button class="btn btn-primary btn-sm" data-action="add-pet">+ Добавить</button>`;
+    return;
+  }
+  if(state.view==='calendarAll'){
+    tb.innerHTML = `
+      <div class="brand"><span class="mark">📅</span><div><h1>Календарь</h1><div class="sub">Все питомцы</div></div></div>
+      <span></span>`;
+    return;
+  }
+  if(state.view==='petPage'){
+    const pet = findPet(state.currentPetId);
+    tb.innerHTML = `
+      <button class="back" data-action="back">${backIcon}Назад</button>
+      <div class="title-block"><span class="kicker">${pet ? SPECIES[pet.species].label : ''}</span><h2>${pet ? pet.name : ''}</h2></div>
+      <div class="topbar-actions">
+        <button class="icon-btn" data-action="edit-pet" data-pet-id="${pet.id}">✏️</button>
+        <button class="icon-btn" data-action="delete-pet" data-pet-id="${pet.id}">🗑️</button>
+      </div>`;
+    return;
+  }
+  if(state.view==='petForm'){
+    tb.innerHTML = `
+      <button class="back" data-action="back">${backIcon}Назад</button>
+      <div class="title-block"><span class="kicker">Питомец</span><h2>${state.editingPetId ? 'Изменить' : 'Новый питомец'}</h2></div>
+      <span></span>`;
+    return;
+  }
+  if(state.view==='pregForm'){
+    tb.innerHTML = `
+      <button class="back" data-action="back">${backIcon}Назад</button>
+      <div class="title-block"><span class="kicker">Вязка</span><h2>${state.editingPregId ? 'Изменить' : 'Новая вязка'}</h2></div>
+      <span></span>`;
+    return;
+  }
+  if(state.view==='pregDetail'){
+    const pet = findPet(state.currentPetId);
+    tb.innerHTML = `
+      <button class="back" data-action="back">${backIcon}Назад</button>
+      <div class="title-block"><span class="kicker">${pet ? SPECIES[pet.species].icon + ' ' + pet.name : ''}</span><h2>Беременность</h2></div>
+      <div class="topbar-actions">
+        <button class="icon-btn" data-action="edit-preg" data-pet-id="${state.currentPetId}" data-preg-id="${state.currentPregId}">✏️</button>
+        <button class="icon-btn" data-action="delete-preg" data-pet-id="${state.currentPetId}" data-preg-id="${state.currentPregId}">🗑️</button>
+      </div>`;
+    return;
+  }
+  if(state.view==='litterForm'){
+    const pet = findPet(state.currentPetId);
+    tb.innerHTML = `
+      <button class="back" data-action="back">${backIcon}Назад</button>
+      <div class="title-block"><span class="kicker">${pet ? pet.name : ''}</span><h2>Роды и приплод</h2></div>
+      <span></span>`;
+    return;
+  }
+  if(state.view==='settings'){
+    tb.innerHTML = `
+      <div class="brand"><span class="mark">⚙️</span><div><h1>Настройки</h1><div class="sub">Синхронизация и бэкап</div></div></div>
+      <span></span>`;
+    return;
+  }
+  if(state.view==='matingFinder'){
+    const pet = findPet(state.currentPetId);
+    tb.innerHTML = `
+      <button class="back" data-action="back">${backIcon}Назад</button>
+      <div class="title-block"><span class="kicker">${pet ? pet.name : ''}</span><h2>Удачная дата вязки</h2></div>
+      <span></span>`;
+    return;
+  }
+  if(state.view==='tripForm'){
+    tb.innerHTML = `
+      <button class="back" data-action="back">${backIcon}Назад</button>
+      <div class="title-block"><span class="kicker">Поездка</span><h2>${state.editingTripId ? 'Изменить' : 'Новая поездка'}</h2></div>
+      <span></span>`;
+    return;
+  }
+}
+
+/* =========================================================
+   Компонент: gauge (шкала-линейка беременности)
+   ========================================================= */
+function renderGauge(speciesKey, pred, compact){
+  const domainDays = Math.max(1, diffDays(pred.matingStart, pred.maxDate));
+  const winStartDays = diffDays(pred.matingStart, pred.minDate);
+  const winStartPct = clamp(winStartDays / domainDays * 100, 0, 100);
+  const winWidthPct = 100 - winStartPct;
+  const fillPct = pred.progressPct;
+  const avgDay = diffDays(pred.matingStart, pred.avgDate);
+  const avgPct = clamp(avgDay / domainDays * 100, 0, 100);
+  const weeks = Math.max(1, Math.round(domainDays/7));
+  let ticks = '';
+  if(!compact){
+    for(let i=0;i<weeks;i++) ticks += '<div class="gauge-tick"></div>';
+  }
+  const footClass = pred.overdue ? 'overdue' : '';
+  let footText;
+  if(pred.overdue){
+    footText = `<span class="days-left">⚠️ Просрочено на ${pred.daysOverdue} ${pluralDays(pred.daysOverdue)}</span>`;
+  } else if(pred.inWindow){
+    footText = `<span class="days-left">Ожидаем со дня на день</span>`;
+  } else if(pred.daysLeft >= 0){
+    footText = `Роды через <span class="days-left">${pred.daysLeft} ${pluralDays(pred.daysLeft)}</span>`;
+  } else {
+    footText = `<span class="days-left">Ожидаемая дата прошла</span>`;
+  }
+  return `
+    <div class="gauge-block">
+      <div class="gauge ${compact?'compact':''}">
+        <div class="gauge-window" style="left:${winStartPct}%;width:${winWidthPct}%;"></div>
+        <div class="gauge-ticks">${ticks}</div>
+        <div class="gauge-fill" style="width:${fillPct}%;"></div>
+        ${!compact ? `<div class="gauge-avg" style="left:${avgPct}%;"></div>` : ''}
+      </div>
+      <div class="gauge-foot ${footClass}">
+        <span>${formatDateShort(pred.matingStart)}</span>
+        ${footText}
+        <span>${formatDateShort(pred.maxDate)}</span>
+      </div>
+    </div>`;
+}
+
+function statusPillHtml(pred){
+  if(pred.overdue) return `<span class="status-pill status-overdue">Просрочено</span>`;
+  if(pred.inWindow) return `<span class="status-pill status-due">Ждём</span>`;
+  return `<span class="status-pill status-active">Активна</span>`;
+}
+
+function renderCorrectionNote(correction){
+  if(!correction) return '';
+  const dir = correction.offsetDays===0 ? 'совпадает со средним сроком' : (correction.offsetDays>0 ? `обычно позже на ${Math.abs(correction.offsetDays)} ${pluralDays(correction.offsetDays)}` : `обычно раньше на ${Math.abs(correction.offsetDays)} ${pluralDays(correction.offsetDays)}`);
+  const src = correction.source==='personal'
+    ? `по истории родов этого питомца (${correction.sampleSize})`
+    : `по породе «${correction.breed}» (${correction.sampleSize} набл.)`;
+  return `<div class="correction-note">📊 Прогноз скорректирован ${src}: ${dir}.</div>`;
+}
+
+/* =========================================================
+   Рендер: список питомцев
+   ========================================================= */
+function renderList(){
+  const pets = state.data.pets;
+  if(!pets.length){
+    return `
+      <div class="empty-state">
+        <div class="glyph">🐾</div>
+        <p>Пока нет питомцев.<br>Добавьте первого — и приложение начнёт считать сроки родов.</p>
+        <button class="btn btn-primary" data-action="add-pet">+ Добавить питомца</button>
+      </div>`;
+  }
+  return pets.map(pet=>{
+    const sp = SPECIES[pet.species];
+    const preg = activePregOf(pet);
+    let body;
+    if(preg){
+      const pred = predictFor(pet, preg);
+      body = `
+        <div class="pet-card-head">
+          <div class="pet-id">
+            <div class="pet-tag">${sp.icon}</div>
+            <div><div class="pet-name">${pet.name}</div><div class="pet-species">${sp.label}${pet.breed ? ' · '+pet.breed : ''}</div></div>
+          </div>
+          ${statusPillHtml(pred)}
+        </div>
+        ${renderGauge(pet.species, pred, true)}`;
+    } else {
+      body = `
+        <div class="pet-card-head">
+          <div class="pet-id">
+            <div class="pet-tag">${sp.icon}</div>
+            <div><div class="pet-name">${pet.name}</div><div class="pet-species">${sp.label}${pet.breed ? ' · '+pet.breed : ''}</div></div>
+          </div>
+          <span class="status-pill status-none">Нет вязки</span>
+        </div>
+        <div class="empty-line">Добавьте дату вязки, чтобы увидеть прогноз родов →</div>`;
+    }
+    return `<div class="pet-card" data-action="open-pet" data-pet-id="${pet.id}">${body}</div>`;
+  }).join('');
+}
+
+/* =========================================================
+   Рендер: форма питомца
+   ========================================================= */
+function renderPetForm(){
+  const editing = state.editingPetId ? findPet(state.editingPetId) : null;
+  const name = editing ? editing.name : '';
+  const species = editing ? editing.species : 'dog';
+  const breed = editing ? (editing.breed||'') : '';
+  const speciesOpts = SPECIES_ORDER.map(k=>{
+    const s = SPECIES[k];
+    return `<div class="species-opt ${k===species?'sel':''}" data-action="pick-species" data-species="${k}">
+      <span class="g">${s.icon}</span><span class="l">${s.label}</span>
+    </div>`;
+  }).join('');
+  return `
+    ${state.formError ? `<div class="form-error">${state.formError}</div>` : ''}
+    <form data-form="pet-form">
+      <div class="field">
+        <label>Вид животного</label>
+        <div class="species-grid" id="species-grid">${speciesOpts}</div>
+        <input type="hidden" name="species" id="species-input" value="${species}">
+      </div>
+      <div class="field">
+        <label>Кличка</label>
+        <input type="text" name="name" value="${name}" placeholder="Например, Белка" required>
+      </div>
+      <div class="field">
+        <label>Порода <span style="font-weight:400;color:var(--ink-faint);">(необязательно)</span></label>
+        <input type="text" name="breed" value="${breed}" placeholder="Например, лабрадор">
+        <div class="hint">Если по породе или по истории этого питомца наберётся 2+ родов — прогноз станет точнее.</div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+      </div>
+    </form>`;
+}
+
+/* =========================================================
+   Рендер: страница питомца (список вязок)
+   ========================================================= */
+function renderPetPage(){
+  const pet = findPet(state.currentPetId);
+  if(!pet) return `<div class="empty-state"><p>Питомец не найден</p></div>`;
+  const sp = SPECIES[pet.species];
+  const all = pet.pregnancies.slice().sort((a,b)=> b.matingStart.localeCompare(a.matingStart));
+  const activeList = all.filter(p=>!p.actualBirthDate);
+  const completedList = all.filter(p=>p.actualBirthDate);
+
+  const activeHtml = activeList.length ? activeList.map(preg=>{
+    const pred = predictFor(pet, preg);
+    const rangeTxt = preg.matingEnd && preg.matingEnd!==preg.matingStart
+      ? `${formatDateShort(pred.matingStart)} — ${formatDateShort(pred.matingEnd)}`
+      : formatDateShort(pred.matingStart);
+    return `
+      <div class="preg-card" data-action="open-preg" data-pet-id="${pet.id}" data-preg-id="${preg.id}">
+        <div class="top">
+          <span class="range">Вязка: ${rangeTxt}</span>
+          ${statusPillHtml(pred)}
+        </div>
+        <div class="meta">Ожидаемо: ${formatDateShort(pred.minDate)} – ${formatDateShort(pred.maxDate)}</div>
+      </div>`;
+  }).join('') : `<div class="empty-line" style="margin-bottom:14px;">Активных вязок нет.</div>`;
+
+  let historyBlock = '';
+  if(completedList.length){
+    let statsHtml = '';
+    if(completedList.length>=2){
+      const devs = completedList.map(p=>{
+        const pr = computePrediction(p, pet.species);
+        return diffDays(pr.avgDate, parseDate(p.actualBirthDate));
+      });
+      const avgDev = Math.round((devs.reduce((a,b)=>a+b,0)/devs.length)*10)/10;
+      statsHtml = Math.abs(avgDev)<0.5
+        ? `<div class="notes-box" style="margin-bottom:10px;">По ${completedList.length} родам: срок обычно совпадает со средним прогнозом.</div>`
+        : `<div class="notes-box" style="margin-bottom:10px;">По ${completedList.length} родам: обычно рожает на ${Math.abs(avgDev)} ${pluralDays(avgDev)} ${avgDev<0?'раньше':'позже'} среднего прогноза.</div>`;
+    }
+    const completedHtml = completedList.map(preg=>{
+      const pred = computePrediction(preg, pet.species);
+      const actualDate = parseDate(preg.actualBirthDate);
+      const diff = diffDays(pred.avgDate, actualDate);
+      const diffLabel = diff===0 ? 'в срок' : (diff>0 ? `+${diff} дн` : `${diff} дн`);
+      const litter = preg.litter || {aliveCount:0, stillbornCount:0};
+      return `
+        <div class="preg-card" data-action="open-preg" data-pet-id="${pet.id}" data-preg-id="${preg.id}">
+          <div class="top">
+            <span class="range">🐣 ${formatDateShort(actualDate)}</span>
+            <span class="diff-badge">${diffLabel} от прогноза</span>
+          </div>
+          <div class="meta">Живых: ${litter.aliveCount} · Мертворожд.: ${litter.stillbornCount}</div>
+        </div>`;
+    }).join('');
+    historyBlock = `
+      <div class="section-title"><h3>История родов</h3></div>
+      ${statsHtml}
+      ${completedHtml}`;
+  }
+
+  return `
+    <div class="pet-hero">
+      <div class="pet-tag">${sp.icon}</div>
+      <div><div class="nm">${pet.name}</div><div class="sp">${sp.label}${pet.breed ? ' · '+pet.breed : ''}</div></div>
+    </div>
+    <div class="section-title">
+      <h3>Активные вязки</h3>
+      <button class="btn btn-primary btn-sm" data-action="add-preg" data-pet-id="${pet.id}">+ Добавить</button>
+    </div>
+    ${activeHtml}
+    ${historyBlock}`;
+}
+
+/* =========================================================
+   Рендер: форма вязки
+   ========================================================= */
+function renderPregForm(){
+  const pet = findPet(state.currentPetId);
+  const editing = state.editingPregId ? findPreg(pet, state.editingPregId) : null;
+  const pendingDate = state.pendingMatingDate;
+  state.pendingMatingDate = null; // используем один раз
+  const matingStart = pendingDate || (editing ? editing.matingStart : '');
+  const hasRange = editing ? !!(editing.matingEnd && editing.matingEnd!==editing.matingStart) : false;
+  const matingEnd = editing ? (editing.matingEnd||'') : '';
+  const confirmedDate = editing ? (editing.confirmedDate||'') : '';
+  const notes = editing ? (editing.notes||'') : '';
+  return `
+    ${state.formError ? `<div class="form-error">${state.formError}</div>` : ''}
+    <form data-form="preg-form">
+      <div class="field">
+        <label>Дата вязки</label>
+        <input type="date" name="matingStart" value="${matingStart}" required>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="range-toggle" ${hasRange?'checked':''}>
+        <label for="range-toggle">Вязка растянута на несколько дней</label>
+      </div>
+      <div class="field" id="mating-end-field" style="${hasRange?'':'display:none;'}">
+        <label>Дата окончания вязки</label>
+        <input type="date" name="matingEnd" value="${matingEnd}">
+      </div>
+      <div id="mating-conflict-warning"></div>
+      <div style="margin:4px 0 18px;">
+        <button type="button" class="btn btn-ghost btn-block" data-action="open-finder" data-pet-id="${pet.id}">📅 Найти удачную дату вязки</button>
+      </div>
+      <div class="field">
+        <label>Дата подтверждения беременности <span style="font-weight:400;color:var(--ink-faint);">(необязательно)</span></label>
+        <input type="date" name="confirmedDate" value="${confirmedDate}">
+      </div>
+      <div class="field">
+        <label>Заметки</label>
+        <textarea name="notes" placeholder="Например, особенности вязки, вет-клиника...">${notes}</textarea>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+      </div>
+    </form>`;
+}
+
+// Обновляет блок предупреждения о конфликте с поездками внутри формы вязки (без полного ре-рендера)
+function updateMatingWarning(){
+  const warnEl = document.getElementById('mating-conflict-warning');
+  if(!warnEl) return;
+  const form = document.querySelector('[data-form="preg-form"]');
+  if(!form) return;
+  const pet = findPet(state.currentPetId);
+  const matingStart = form.querySelector('[name="matingStart"]').value;
+  const rangeToggle = document.getElementById('range-toggle');
+  const rangeOn = rangeToggle ? rangeToggle.checked : false;
+  const matingEndInput = form.querySelector('[name="matingEnd"]');
+  const matingEnd = rangeOn && matingEndInput ? matingEndInput.value : matingStart;
+  if(!matingStart || !pet){ warnEl.innerHTML = ''; return; }
+  const pred = previewPrediction(pet, matingStart, matingEnd || matingStart);
+  const conflicts = tripsOverlapping(pred.minDate, pred.maxDate);
+  if(conflicts.length){
+    warnEl.innerHTML = conflicts.map(tr=>`
+      <div class="overdue-banner">✈️ Ожидаемые роды (${formatDateShort(pred.minDate)}–${formatDateShort(pred.maxDate)}) пересекаются с поездкой «${tr.title}» (${formatDateShort(parseDate(tr.startDate))}–${formatDateShort(parseDate(tr.endDate))}).</div>`
+    ).join('');
+  } else if((state.data.trips||[]).length){
+    warnEl.innerHTML = `<div class="correction-note">✓ Конфликтов с поездками нет. Ожидаемые роды: ${formatDateShort(pred.minDate)}–${formatDateShort(pred.maxDate)}.</div>`;
+  } else {
+    warnEl.innerHTML = `<div class="hint" style="margin-top:8px;">Ожидаемые роды: ${formatDateShort(pred.minDate)}–${formatDateShort(pred.maxDate)}. Добавьте поездки в «Календаре», чтобы видеть конфликты.</div>`;
+  }
+}
+
+/* =========================================================
+   Рендер: календарь месяца (переиспользуемый)
+   ========================================================= */
+function buildMonthCells(year, month){
+  const first = new Date(Date.UTC(year, month, 1));
+  const startOffset = (first.getUTCDay() + 6) % 7; // понедельник = 0
+  const gridStart = addDays(first, -startOffset);
+  const cells = [];
+  for(let i=0;i<42;i++) cells.push(addDays(gridStart, i));
+  return cells;
+}
+
+function renderDetailCalendar(pet, pred, checklist){
+  const year = state.detailCalYear, month = state.detailCalMonth;
+  const cells = buildMonthCells(year, month);
+  const matingStartStr = toInputValue(pred.matingStart);
+  const matingEndStr = toInputValue(pred.matingEnd);
+  const minStr = toInputValue(pred.minDate);
+  const maxStr = toInputValue(pred.maxDate);
+  const avgStr = toInputValue(pred.avgDate);
+  const todayStr = toInputValue(todayUTC());
+  const checkMap = {};
+  checklist.forEach(c=>{
+    const k = toInputValue(c.date);
+    (checkMap[k] = checkMap[k]||[]).push(c.label);
+  });
+
+  const cellsHtml = cells.map(d=>{
+    const dStr = toInputValue(d);
+    const cls = [];
+    if(d.getUTCMonth()!==month) cls.push('pad');
+    if(dStr>=matingStartStr && dStr<=matingEndStr) cls.push('mating');
+    if(dStr>=minStr && dStr<=maxStr) cls.push('window');
+    if(dStr===avgStr) cls.push('avg');
+    if(dStr===todayStr) cls.push('today');
+    const hasCheck = checkMap[dStr];
+    const title = hasCheck ? hasCheck.join(', ') : '';
+    return `<div class="cal-cell ${cls.join(' ')}" ${title?`title="${title}"`:''}>${d.getUTCDate()}${hasCheck?'<span class="dot"></span>':''}</div>`;
+  }).join('');
+
+  return `
+    <div class="cal-card">
+      <div class="cal-nav">
+        <button data-action="cal-prev" data-cal="detail">‹</button>
+        <span class="lbl">${MONTHS_RU_NOM[month]} ${year}</span>
+        <button data-action="cal-next" data-cal="detail">›</button>
+      </div>
+      <div class="cal-weekdays">${WEEKDAYS_RU.map(w=>`<span>${w}</span>`).join('')}</div>
+      <div class="cal-grid">${cellsHtml}</div>
+      <div class="cal-legend">
+        <div class="li"><span class="sw sw-mating"></span>Вязка</div>
+        <div class="li"><span class="sw sw-window"></span>Окно родов</div>
+        <div class="li"><span class="sw sw-avg"></span>Вероятная дата</div>
+        <div class="li"><span class="sw-dot"></span>Чек-поинт</div>
+      </div>
+    </div>`;
+}
+
+function renderAllCalendar(){
+  if(state.allCalYear===null){
+    const t = todayUTC();
+    state.allCalYear = t.getUTCFullYear();
+    state.allCalMonth = t.getUTCMonth();
+  }
+  const year = state.allCalYear, month = state.allCalMonth;
+  const cells = buildMonthCells(year, month);
+  const todayStr = toInputValue(todayUTC());
+
+  // Собираем активные беременности с цветом на питомца
+  const active = [];
+  state.data.pets.forEach((pet, idx)=>{
+    const preg = activePregOf(pet);
+    if(!preg) return;
+    const pred = predictFor(pet, preg);
+    active.push({ pet, pred, color: ACCENTS[idx % ACCENTS.length] });
+  });
+
+  const legend = active.length ? active.map(a=>{
+    const hidden = state.calendarAllHidden.has(a.pet.id);
+    return `<div class="li" data-action="toggle-legend" data-pet-id="${a.pet.id}" style="cursor:pointer;opacity:${hidden?0.4:1};">
+      <span class="sw" style="background:${a.color};border-radius:50%;"></span>${SPECIES[a.pet.species].icon} ${a.pet.name}
+    </div>`;
+  }).join('') : `<div class="li">Нет активных беременностей</div>`;
+
+  const cellsHtml = cells.map(d=>{
+    const dStr = toInputValue(d);
+    const cls = [];
+    if(d.getUTCMonth()!==month) cls.push('pad');
+    if(dStr===todayStr) cls.push('today');
+    if(isTripDay(dStr)) cls.push('trip-day');
+    let dots = '';
+    let star = '';
+    active.forEach(a=>{
+      if(state.calendarAllHidden.has(a.pet.id)) return;
+      const minStr = toInputValue(a.pred.minDate), maxStr = toInputValue(a.pred.maxDate);
+      const avgStr = toInputValue(a.pred.avgDate);
+      if(dStr===avgStr){ star += `<span style="color:${a.color};font-size:.6rem;line-height:1;">★</span>`; }
+      else if(dStr>=minStr && dStr<=maxStr){ dots += `<span style="width:5px;height:5px;border-radius:50%;background:${a.color};display:inline-block;margin:0 1px;"></span>`; }
+    });
+    const marks = star || (dots ? `<div style="position:absolute;bottom:2px;display:flex;">${dots}</div>` : '');
+    return `<div class="cal-cell ${cls.join(' ')}">${d.getUTCDate()}${marks}</div>`;
+  }).join('');
+
+  return `
+    <div class="cal-card" style="margin-top:0;">
+      <div class="cal-nav">
+        <button data-action="cal-prev" data-cal="all">‹</button>
+        <span class="lbl">${MONTHS_RU_NOM[month]} ${year}</span>
+        <button data-action="cal-next" data-cal="all">›</button>
+      </div>
+      <div class="cal-weekdays">${WEEKDAYS_RU.map(w=>`<span>${w}</span>`).join('')}</div>
+      <div class="cal-grid">${cellsHtml}</div>
+      <div class="cal-legend">
+        ${legend}
+        <div class="li"><span class="sw" style="box-shadow:inset 0 0 0 2px var(--gold);"></span>Поездка</div>
+      </div>
+    </div>
+    ${renderTripsListBlock()}`;
+}
+
+/* =========================================================
+   Температура
+   ========================================================= */
+function toDatetimeLocalNow(){
+  const t = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  return `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}T${pad(t.getHours())}:${pad(t.getMinutes())}`;
+}
+
+function renderTempChart(log){
+  const entries = log.slice(-10);
+  const values = entries.map(e=>e.value);
+  let min = Math.min(...values), max = Math.max(...values);
+  if(min===max){ min-=0.5; max+=0.5; }
+  min -= 0.3; max += 0.3;
+  const width = 280, height = 64, padX = 8;
+  const stepX = entries.length>1 ? (width-2*padX)/(entries.length-1) : 0;
+  const pts = entries.map((e,i)=>{
+    const x = padX + i*stepX;
+    const y = height - ((e.value-min)/(max-min))*height;
+    return {x,y};
+  });
+  const polyline = pts.map(p=>`${p.x},${p.y}`).join(' ');
+  const circles = pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="2.5" fill="var(--green)"/>`).join('');
+  return `<svg viewBox="0 0 ${width} ${height}" style="width:100%;height:64px;display:block;margin-bottom:4px;">
+    <polyline points="${polyline}" fill="none" stroke="var(--green)" stroke-width="2"/>${circles}
+  </svg>`;
+}
+
+function renderTemperatureSection(pet, preg){
+  const log = (preg.temperatureLog||[]).slice().sort((a,b)=> a.datetime.localeCompare(b.datetime));
+  let alertHtml = '';
+  if(log.length>=2){
+    const last = log[log.length-1];
+    const prevSlice = log.slice(Math.max(0, log.length-6), log.length-1);
+    const avgPrev = prevSlice.reduce((s,e)=>s+e.value,0)/prevSlice.length;
+    if(last.value <= avgPrev - 0.5){
+      alertHtml = `<div class="overdue-banner" style="background:var(--gold-pale);color:#8A6317;">🌡️ Температура упала — роды возможны в ближайшие 24 часа.</div>`;
+    }
+  }
+  const listHtml = log.slice().reverse().slice(0,8).map(e=>{
+    const d = new Date(e.datetime);
+    const dd = String(d.getDate()).padStart(2,'0'), mm = String(d.getMonth()+1).padStart(2,'0');
+    const hh = String(d.getHours()).padStart(2,'0'), mi = String(d.getMinutes()).padStart(2,'0');
+    return `
+      <div class="temp-row">
+        <span>${dd}.${mm} ${hh}:${mi}</span>
+        <span class="mono">${e.value.toFixed(1)}°C</span>
+        <button type="button" class="icon-btn" data-action="delete-temp" data-pet-id="${pet.id}" data-preg-id="${preg.id}" data-entry-id="${e.id}">✕</button>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="section-title"><h3>Температура</h3></div>
+    ${alertHtml}
+    <div class="cal-card">
+      ${log.length ? renderTempChart(log) : `<div class="empty-line" style="margin:0 0 4px;">Пока нет измерений.</div>`}
+      <form data-form="temp-form" class="temp-add-form">
+        <input type="datetime-local" name="datetime" value="${toDatetimeLocalNow()}" required>
+        <input type="number" step="0.1" name="value" placeholder="°C" required>
+        <button type="submit" class="btn btn-primary btn-sm">+</button>
+      </form>
+      ${listHtml ? `<div class="temp-list">${listHtml}</div>` : ''}
+    </div>`;
+}
+
+/* =========================================================
+   Приплод
+   ========================================================= */
+function weightRowHtml(val){
+  const v = (val===undefined || val===null || val==='') ? '' : val;
+  return `<div class="weight-row"><input type="number" step="0.1" name="weight[]" placeholder="г" value="${v}"><button type="button" class="icon-btn" data-action="remove-weight-row">✕</button></div>`;
+}
+
+function renderLitterForm(){
+  const pet = findPet(state.currentPetId);
+  const preg = findPreg(pet, state.currentPregId);
+  const editingLitter = !!preg.litter;
+  const birthDateVal = preg.actualBirthDate || toInputValue(todayUTC());
+  const aliveVal = editingLitter ? preg.litter.aliveCount : '';
+  const stillVal = editingLitter ? preg.litter.stillbornCount : '';
+  const notesVal = editingLitter ? (preg.litter.notes||'') : '';
+  const weights = editingLitter ? (preg.litter.weights||[]) : [];
+  const weightRows = weights.map(w=>weightRowHtml(w)).join('');
+  return `
+    ${state.formError ? `<div class="form-error">${state.formError}</div>` : ''}
+    <form data-form="litter-form">
+      <div class="field">
+        <label>Дата родов</label>
+        <input type="date" name="birthDate" value="${birthDateVal}" required>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Живых</label><input type="number" min="0" name="aliveCount" value="${aliveVal}" placeholder="0"></div>
+        <div class="field"><label>Мертворожд.</label><input type="number" min="0" name="stillbornCount" value="${stillVal}" placeholder="0"></div>
+      </div>
+      <div class="field">
+        <label>Вес при рождении <span style="font-weight:400;color:var(--ink-faint);">(г, необязательно)</span></label>
+        <div id="weights-container">${weightRows}</div>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="add-weight-row">+ Добавить вес</button>
+      </div>
+      <div class="field">
+        <label>Заметки</label>
+        <textarea name="notes" placeholder="Осложнения, помощь ветеринара...">${notesVal}</textarea>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+      </div>
+    </form>`;
+}
+
+/* =========================================================
+   Рендер: детальная карточка беременности
+   ========================================================= */
+function renderCompletedPregDetail(pet, preg){
+  const pred = computePrediction(preg, pet.species);
+  const actualDate = parseDate(preg.actualBirthDate);
+  const diff = diffDays(pred.avgDate, actualDate);
+  let diffText;
+  if(diff===0) diffText = 'Точно в срок — совпало со средним прогнозом';
+  else if(diff>0) diffText = `На ${diff} ${pluralDays(diff)} позже среднего прогноза`;
+  else diffText = `На ${Math.abs(diff)} ${pluralDays(diff)} раньше среднего прогноза`;
+  const withinWindow = actualDate.getTime()>=pred.minDate.getTime() && actualDate.getTime()<=pred.maxDate.getTime();
+
+  const litter = preg.litter || {aliveCount:0, stillbornCount:0, weights:[], notes:''};
+  const totalCount = litter.aliveCount + litter.stillbornCount;
+  const weightsHtml = (litter.weights && litter.weights.length)
+    ? `<div class="chips">${litter.weights.map(w=>`<span class="chip">${w} г</span>`).join('')}</div>` : '';
+
+  return `
+    <div class="cal-card birth-summary">
+      <div class="k">Роды состоялись</div>
+      <div class="d">${formatDateLong(actualDate)}</div>
+      <div style="font-size:.82rem;color:${withinWindow?'var(--green-dark)':'var(--ink-soft)'};">${diffText}</div>
+    </div>
+    <div class="section-title">
+      <h3>Приплод</h3>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" data-action="mark-birth" data-pet-id="${pet.id}" data-preg-id="${preg.id}">Изменить</button>
+        <button class="btn btn-danger btn-sm" data-action="delete-litter" data-pet-id="${pet.id}" data-preg-id="${preg.id}">Отменить</button>
+      </div>
+    </div>
+    <div class="cal-card">
+      <div class="key-dates" style="margin-top:0;">
+        <div class="key-date"><div class="lbl">Живых</div><div class="val">${litter.aliveCount}</div></div>
+        <div class="key-date"><div class="lbl">Мертворожд.</div><div class="val">${litter.stillbornCount}</div></div>
+        <div class="key-date"><div class="lbl">Всего</div><div class="val">${totalCount}</div></div>
+      </div>
+      ${weightsHtml}
+      ${litter.notes ? `<div class="notes-box" style="margin-top:10px;">${litter.notes}</div>` : ''}
+    </div>
+    ${renderTemperatureSection(pet, preg)}
+    ${preg.notes ? `<div class="section-title"><h3>Заметки о вязке</h3></div><div class="notes-box">${preg.notes}</div>` : ''}
+  `;
+}
+
+function renderPregDetail(){
+  const pet = findPet(state.currentPetId);
+  const preg = findPreg(pet, state.currentPregId);
+  if(!pet || !preg) return `<div class="empty-state"><p>Запись не найдена</p></div>`;
+
+  if(preg.actualBirthDate){
+    return renderCompletedPregDetail(pet, preg);
+  }
+
+  const pred = predictFor(pet, preg);
+  const checklist = getChecklist(pet.species, pred);
+  const todayStr = toInputValue(todayUTC());
+
+  if(state.detailCalYear===null || state._detailCalPregId!==preg.id){
+    const t = todayUTC();
+    state.detailCalYear = t.getUTCFullYear();
+    state.detailCalMonth = t.getUTCMonth();
+    state._detailCalPregId = preg.id;
+  }
+
+  const checklistHtml = checklist.map(item=>{
+    const done = !!(preg.checklistDone && preg.checklistDone[item.key]);
+    const dStr = toInputValue(item.date);
+    const overdue = !done && dStr < todayStr;
+    const isToday = dStr === todayStr;
+    const cls = [done?'done':'', overdue?'overdue':'', isToday?'today':''].filter(Boolean).join(' ');
+    return `
+      <div class="checklist-item ${cls}">
+        <input type="checkbox" ${done?'checked':''} data-action="toggle-check" data-pet-id="${pet.id}" data-preg-id="${preg.id}" data-key="${item.key}">
+        <div class="txt">
+          <div class="lbl">${item.label}</div>
+          <div class="dt">${formatDateLong(item.date)}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    ${renderGauge(pet.species, pred, false)}
+    <div class="key-dates">
+      <div class="key-date"><div class="lbl">Минимум</div><div class="val">${formatDateShort(pred.minDate)}</div></div>
+      <div class="key-date avg"><div class="lbl">Вероятно</div><div class="val">${formatDateShort(pred.avgDate)}</div></div>
+      <div class="key-date"><div class="lbl">Максимум</div><div class="val">${formatDateShort(pred.maxDate)}</div></div>
+    </div>
+    ${pred.overdue ? `<div class="overdue-banner">⚠️ Срок вышел, а родов нет — стоит показать питомца ветеринару.</div>` : ''}
+    ${renderCorrectionNote(pred.correction)}
+    <div style="margin-top:14px;">
+      <button class="btn btn-ghost btn-block" data-action="mark-birth" data-pet-id="${pet.id}" data-preg-id="${preg.id}">🐣 Записать роды</button>
+    </div>
+    ${renderDetailCalendar(pet, pred, checklist)}
+    <div class="section-title"><h3>Чек-лист</h3></div>
+    <div class="cal-card" style="padding:4px 14px;">${checklistHtml}</div>
+    ${renderTemperatureSection(pet, preg)}
+    ${preg.notes ? `<div class="section-title"><h3>Заметки</h3></div><div class="notes-box">${preg.notes}</div>` : ''}
+  `;
+}
+
+/* =========================================================
+   Рендер: настройки (GitHub-синк + бэкап)
+   ========================================================= */
+function renderSyncStatusBadge(){
+  if(!state.syncStatus) return '';
+  const s = state.syncStatus;
+  if(s.state==='saving') return `<div class="hint" style="margin-top:8px;">Синхронизация…</div>`;
+  if(s.state==='ok') return `<div class="hint" style="color:var(--green-dark);margin-top:8px;">Сохранено ✓</div>`;
+  if(s.state==='error') return `<div class="form-error" style="margin-top:10px;">${s.message}</div>`;
+  return '';
+}
+
+function renderSettings(){
+  const cfg = getGithubConfig() || {};
+  const lastSync = localStorage.getItem(GH_LAST_SYNC_KEY);
+  const lastSyncTxt = lastSync
+    ? `${formatDateLong(new Date(lastSync))}, ${new Date(lastSync).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}`
+    : 'ещё не выполнялась';
+  return `
+    <div class="section-title"><h3>Синхронизация с GitHub</h3></div>
+    <div class="cal-card">
+      <div class="hint" style="margin-bottom:14px;line-height:1.4;">Резервная копия данных в приватном репозитории — чтобы не потерять всё при очистке кэша браузера. Рассчитано на одно устройство, без синхронизации между несколькими телефонами.</div>
+      <form data-form="github-form">
+        <div class="field"><label>Personal Access Token</label><input type="password" name="token" value="${cfg.token||''}" placeholder="ghp_..." autocomplete="off"></div>
+        <div class="field"><label>Репозиторий</label><input type="text" name="repo" value="${cfg.repo||''}" placeholder="owner/repo"></div>
+        <div class="field-row">
+          <div class="field"><label>Файл</label><input type="text" name="path" value="${cfg.path||'vetcal-data.json'}" placeholder="vetcal-data.json"></div>
+          <div class="field"><label>Ветка</label><input type="text" name="branch" value="${cfg.branch||'main'}" placeholder="main"></div>
+        </div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary btn-block">Сохранить настройки</button></div>
+      </form>
+      <div class="hint" style="margin-top:14px;">Последняя синхронизация: ${lastSyncTxt}</div>
+      ${renderSyncStatusBadge()}
+      <div class="form-actions" style="margin-top:14px;">
+        <button class="btn btn-ghost" data-action="github-push">↑ Сохранить в GitHub</button>
+        <button class="btn btn-ghost" data-action="github-pull">↓ Восстановить из GitHub</button>
+      </div>
+    </div>
+    <div class="section-title"><h3>Локальный бэкап</h3></div>
+    <div class="cal-card">
+      <div class="hint" style="margin-bottom:12px;">Независимо от GitHub — файл можно скачать на телефон или загрузить обратно.</div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" data-action="export-json">⬇ Скачать бэкап</button>
+        <label class="btn btn-ghost" style="text-align:center;cursor:pointer;">
+          ⬆ Загрузить бэкап
+          <input type="file" id="import-file-input" accept="application/json" style="display:none;">
+        </label>
+      </div>
+    </div>`;
+}
+
+/* =========================================================
+   Рендер: поездки (общий список + форма)
+   ========================================================= */
+function renderTripsListBlock(returnAction){
+  const trips = (state.data.trips||[]).slice().sort((a,b)=> a.startDate.localeCompare(b.startDate));
+  const list = trips.length ? trips.map(tr=>`
+    <div class="trip-item">
+      <div class="ti-txt">
+        <div class="ti-title">✈️ ${tr.title}</div>
+        <div class="ti-dates">${formatDateShort(parseDate(tr.startDate))} – ${formatDateShort(parseDate(tr.endDate))}</div>
+      </div>
+      <div class="ti-actions">
+        <button class="icon-btn" data-action="edit-trip" data-trip-id="${tr.id}">✏️</button>
+        <button class="icon-btn" data-action="delete-trip" data-trip-id="${tr.id}">🗑️</button>
+      </div>
+    </div>`).join('') : `<div class="empty-line" style="margin-bottom:4px;">Поездок пока нет.</div>`;
+  return `
+    <div class="section-title">
+      <h3>Поездки</h3>
+      <button class="btn btn-primary btn-sm" data-action="add-trip">+ Добавить</button>
+    </div>
+    <div class="cal-card">${list}</div>`;
+}
+
+function renderTripForm(){
+  const editing = state.editingTripId ? (state.data.trips||[]).find(tr=>tr.id===state.editingTripId) : null;
+  const title = editing ? editing.title : '';
+  const startDate = editing ? editing.startDate : '';
+  const endDate = editing ? editing.endDate : '';
+  return `
+    ${state.formError ? `<div class="form-error">${state.formError}</div>` : ''}
+    <form data-form="trip-form">
+      <div class="field">
+        <label>Название поездки</label>
+        <input type="text" name="title" value="${title}" placeholder="Например, отпуск в Сочи" required>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Начало</label><input type="date" name="startDate" value="${startDate}" required></div>
+        <div class="field"><label>Конец</label><input type="date" name="endDate" value="${endDate}" required></div>
+      </div>
+      <div class="form-actions"><button type="submit" class="btn btn-primary">Сохранить</button></div>
+    </form>`;
+}
+
+/* =========================================================
+   Рендер: подбор удачной даты вязки
+   ========================================================= */
+function renderMatingFinder(){
+  const pet = findPet(state.currentPetId);
+  if(!pet) return `<div class="empty-state"><p>Питомец не найден</p></div>`;
+  if(state.finderCalYear===null){
+    const t = todayUTC();
+    state.finderCalYear = t.getUTCFullYear();
+    state.finderCalMonth = t.getUTCMonth();
+  }
+  const year = state.finderCalYear, month = state.finderCalMonth;
+  const cells = buildMonthCells(year, month);
+  const today = todayUTC();
+  const todayStr = toInputValue(today);
+  const correction = getPredictionCorrection(pet, '__preview__');
+
+  const cellsHtml = cells.map(d=>{
+    const dStr = toInputValue(d);
+    const cls = [];
+    if(d.getUTCMonth()!==month) cls.push('pad');
+    if(dStr===todayStr) cls.push('today');
+    if(isTripDay(dStr)) cls.push('trip-day');
+    let clickable = false;
+    if(d.getTime() >= today.getTime()){
+      const pred = computePrediction({matingStart:dStr, matingEnd:dStr, id:'__preview__'}, pet.species, correction);
+      const conflicts = tripsOverlapping(pred.minDate, pred.maxDate);
+      cls.push(conflicts.length ? 'finder-bad' : 'finder-good');
+      clickable = true;
+    }
+    return `<div class="cal-cell ${cls.join(' ')}" ${clickable?`data-action="pick-mating-date" data-date="${dStr}"`:''}>${d.getUTCDate()}</div>`;
+  }).join('');
+
+  return `
+    <div class="cal-card" style="margin-top:0;">
+      <div class="hint" style="margin-bottom:12px;line-height:1.4;">Зелёным — дни, после которых ожидаемые роды не пересекутся ни с одной поездкой. Красным — дни, после которых роды выпадут на поездку. Нажмите на дату, чтобы подставить её в форму вязки.</div>
+      <div class="cal-nav">
+        <button data-action="cal-prev" data-cal="finder">‹</button>
+        <span class="lbl">${MONTHS_RU_NOM[month]} ${year}</span>
+        <button data-action="cal-next" data-cal="finder">›</button>
+      </div>
+      <div class="cal-weekdays">${WEEKDAYS_RU.map(w=>`<span>${w}</span>`).join('')}</div>
+      <div class="cal-grid">${cellsHtml}</div>
+      <div class="cal-legend">
+        <div class="li"><span class="sw" style="background:var(--green-pale);"></span>Можно вязать</div>
+        <div class="li"><span class="sw" style="background:var(--rust-pale);"></span>Совпадёт с поездкой</div>
+        <div class="li"><span class="sw" style="box-shadow:inset 0 0 0 2px var(--gold);"></span>Дни поездки</div>
+      </div>
+    </div>
+    ${renderTripsListBlock()}`;
+}
+
+/* =========================================================
+   Главный рендер
+   ========================================================= */
+function render(){
+  renderTopbar();
+  const app = document.getElementById('app');
+  switch(state.view){
+    case 'list': app.innerHTML = renderList(); break;
+    case 'petForm': app.innerHTML = renderPetForm(); break;
+    case 'petPage': app.innerHTML = renderPetPage(); break;
+    case 'pregForm': app.innerHTML = renderPregForm(); break;
+    case 'pregDetail': app.innerHTML = renderPregDetail(); break;
+    case 'litterForm': app.innerHTML = renderLitterForm(); break;
+    case 'calendarAll': app.innerHTML = renderAllCalendar(); break;
+    case 'settings': app.innerHTML = renderSettings(); break;
+    case 'matingFinder': app.innerHTML = renderMatingFinder(); break;
+    case 'tripForm': app.innerHTML = renderTripForm(); break;
+  }
+  document.getElementById('nav-list-btn').classList.toggle('active', !['calendarAll','settings'].includes(state.view));
+  document.getElementById('nav-cal-btn').classList.toggle('active', state.view==='calendarAll');
+  document.getElementById('nav-settings-btn').classList.toggle('active', state.view==='settings');
+  if(state.view==='pregForm') updateMatingWarning();
+  window.scrollTo(0,0);
+}
+
+/* =========================================================
+   Обработчики событий (делегирование)
+   ========================================================= */
+document.addEventListener('click', (e)=>{
+  const t = e.target.closest('[data-action]');
+  if(!t) return;
+  const action = t.dataset.action;
+
+  if(action==='nav-list'){ state.view='list'; render(); return; }
+  if(action==='nav-calendar'){ goto('calendarAll'); return; }
+  if(action==='nav-settings'){ state.view='settings'; render(); return; }
+  if(action==='back'){ state.view = state.returnView; render(); return; }
+
+  if(action==='add-pet'){ goto('petForm', {editingPetId:null}); return; }
+  if(action==='edit-pet'){ goto('petForm', {editingPetId:t.dataset.petId}); return; }
+  if(action==='delete-pet'){
+    if(confirm('Удалить питомца и все его вязки без возможности восстановления?')){
+      state.data.pets = state.data.pets.filter(p=>p.id!==t.dataset.petId);
+      saveData();
+      state.view='list'; render();
+    }
+    return;
+  }
+  if(action==='open-pet'){ goto('petPage', {currentPetId:t.dataset.petId}); return; }
+  if(action==='pick-species'){
+    document.getElementById('species-input').value = t.dataset.species;
+    document.querySelectorAll('.species-opt').forEach(el=>el.classList.remove('sel'));
+    t.classList.add('sel');
+    return;
+  }
+
+  if(action==='add-preg'){ goto('pregForm', {currentPetId:t.dataset.petId, editingPregId:null}); return; }
+  if(action==='edit-preg'){ goto('pregForm', {currentPetId:t.dataset.petId, editingPregId:t.dataset.pregId}); return; }
+  if(action==='open-preg'){ goto('pregDetail', {currentPetId:t.dataset.petId, currentPregId:t.dataset.pregId, detailCalYear:null}); return; }
+  if(action==='delete-preg'){
+    if(confirm('Удалить эту запись о вязке?')){
+      const pet = findPet(t.dataset.petId);
+      pet.pregnancies = pet.pregnancies.filter(p=>p.id!==t.dataset.pregId);
+      saveData();
+      goto('petPage', {currentPetId: pet.id});
+    }
+    return;
+  }
+  if(action==='toggle-check'){
+    const pet = findPet(t.dataset.petId);
+    const preg = findPreg(pet, t.dataset.pregId);
+    preg.checklistDone = preg.checklistDone || {};
+    preg.checklistDone[t.dataset.key] = t.checked;
+    saveData();
+    return;
+  }
+
+  if(action==='cal-prev' || action==='cal-next'){
+    const dir = action==='cal-prev' ? -1 : 1;
+    const target = t.dataset.cal;
+    const yKey = target==='detail' ? 'detailCalYear' : (target==='finder' ? 'finderCalYear' : 'allCalYear');
+    const mKey = target==='detail' ? 'detailCalMonth' : (target==='finder' ? 'finderCalMonth' : 'allCalMonth');
+    let y = state[yKey], m = state[mKey] + dir;
+    if(m<0){ m=11; y--; } if(m>11){ m=0; y++; }
+    state[yKey]=y; state[mKey]=m;
+    render();
+    return;
+  }
+  if(action==='toggle-legend'){
+    const id = t.dataset.petId;
+    if(state.calendarAllHidden.has(id)) state.calendarAllHidden.delete(id);
+    else state.calendarAllHidden.add(id);
+    render();
+    return;
+  }
+
+  if(action==='mark-birth'){ goto('litterForm', {currentPetId:t.dataset.petId, currentPregId:t.dataset.pregId}); return; }
+  if(action==='delete-litter'){
+    if(confirm('Отменить запись о родах? Данные о приплоде удалятся, вязка снова станет активной.')){
+      const pet = findPet(t.dataset.petId);
+      const preg = findPreg(pet, t.dataset.pregId);
+      preg.actualBirthDate = null;
+      preg.litter = null;
+      saveData();
+      render();
+    }
+    return;
+  }
+  if(action==='add-weight-row'){
+    document.getElementById('weights-container').insertAdjacentHTML('beforeend', weightRowHtml(''));
+    return;
+  }
+  if(action==='remove-weight-row'){
+    t.closest('.weight-row').remove();
+    return;
+  }
+  if(action==='delete-temp'){
+    const pet = findPet(t.dataset.petId);
+    const preg = findPreg(pet, t.dataset.pregId);
+    preg.temperatureLog = (preg.temperatureLog||[]).filter(e=>e.id!==t.dataset.entryId);
+    saveData();
+    render();
+    return;
+  }
+
+  if(action==='github-push'){ pushToGithub(); return; }
+  if(action==='github-pull'){
+    if(confirm('Это заменит все локальные данные данными из GitHub. Продолжить?')){
+      pullFromGithub().then(result=>{
+        if(result.ok){ render(); alert('Данные восстановлены из GitHub.'); }
+        else{ alert(result.message); }
+      });
+    }
+    return;
+  }
+  if(action==='export-json'){ exportBackup(); return; }
+
+  if(action==='open-finder'){ goto('matingFinder', {currentPetId:t.dataset.petId, finderCalYear:null, finderCalMonth:null}); return; }
+  if(action==='pick-mating-date'){
+    state.pendingMatingDate = t.dataset.date;
+    goto('pregForm', {currentPetId: state.currentPetId, editingPregId: state.editingPregId});
+    return;
+  }
+  if(action==='add-trip'){ goto('tripForm', {editingTripId:null}); return; }
+  if(action==='edit-trip'){ goto('tripForm', {editingTripId:t.dataset.tripId}); return; }
+  if(action==='delete-trip'){
+    if(confirm('Удалить поездку?')){
+      state.data.trips = (state.data.trips||[]).filter(tr=>tr.id!==t.dataset.tripId);
+      saveData();
+      render();
+    }
+    return;
+  }
+});
+
+document.addEventListener('change', (e)=>{
+  if(e.target.id==='range-toggle'){
+    const field = document.getElementById('mating-end-field');
+    field.style.display = e.target.checked ? '' : 'none';
+    updateMatingWarning();
+  }
+  if(e.target.name==='matingStart' || e.target.name==='matingEnd'){
+    updateMatingWarning();
+  }
+  if(e.target.id==='import-file-input'){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const parsed = JSON.parse(reader.result);
+        if(!parsed || !Array.isArray(parsed.pets)) throw new Error('bad');
+        if(confirm('Заменить текущие данные содержимым файла?')){
+          state.data = parsed;
+          saveData();
+          render();
+          alert('Бэкап загружен.');
+        }
+      }catch(err){
+        alert('Не удалось прочитать файл — убедитесь, что это корректный JSON-бэкап.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+});
+
+document.addEventListener('submit', (e)=>{
+  const form = e.target.closest('[data-form]');
+  if(!form) return;
+  e.preventDefault();
+  const type = form.dataset.form;
+  const fd = new FormData(form);
+
+  if(type==='pet-form'){
+    const name = (fd.get('name')||'').trim();
+    const species = document.getElementById('species-input').value;
+    const breed = (fd.get('breed')||'').trim();
+    if(!name){ state.formError='Введите кличку питомца.'; render(); return; }
+    if(state.editingPetId){
+      const pet = findPet(state.editingPetId);
+      pet.name = name; pet.species = species; pet.breed = breed;
+      saveData();
+      goto('petPage', {currentPetId: pet.id});
+    } else {
+      const pet = { id: uid(), name, species, breed, pregnancies: [] };
+      state.data.pets.push(pet);
+      saveData();
+      goto('petPage', {currentPetId: pet.id});
+    }
+    return;
+  }
+
+  if(type==='preg-form'){
+    const matingStart = fd.get('matingStart');
+    const rangeOn = document.getElementById('range-toggle').checked;
+    let matingEnd = rangeOn ? fd.get('matingEnd') : '';
+    const confirmedDate = fd.get('confirmedDate') || '';
+    const notes = (fd.get('notes')||'').trim();
+
+    if(!matingStart){ state.formError='Укажите дату вязки.'; render(); return; }
+    if(rangeOn && !matingEnd){ state.formError='Укажите дату окончания вязки или отключите диапазон.'; render(); return; }
+    if(rangeOn && matingEnd < matingStart){ state.formError='Дата окончания вязки раньше даты начала.'; render(); return; }
+
+    const pet = findPet(state.currentPetId);
+    if(state.editingPregId){
+      const preg = findPreg(pet, state.editingPregId);
+      preg.matingStart = matingStart;
+      preg.matingEnd = matingEnd || matingStart;
+      preg.confirmedDate = confirmedDate;
+      preg.notes = notes;
+      saveData();
+      goto('pregDetail', {currentPetId: pet.id, currentPregId: preg.id, detailCalYear:null});
+    } else {
+      const preg = { id: uid(), matingStart, matingEnd: matingEnd || matingStart, confirmedDate, notes, checklistDone:{}, actualBirthDate:null };
+      pet.pregnancies.push(preg);
+      saveData();
+      goto('pregDetail', {currentPetId: pet.id, currentPregId: preg.id, detailCalYear:null});
+    }
+    return;
+  }
+
+  if(type==='temp-form'){
+    const datetime = fd.get('datetime');
+    const value = parseFloat(fd.get('value'));
+    if(!datetime || isNaN(value)){ alert('Укажите дату/время и значение температуры.'); return; }
+    const pet = findPet(state.currentPetId);
+    const preg = findPreg(pet, state.currentPregId);
+    preg.temperatureLog = preg.temperatureLog || [];
+    preg.temperatureLog.push({ id: uid(), datetime, value });
+    saveData();
+    render();
+    return;
+  }
+
+  if(type==='litter-form'){
+    const birthDate = fd.get('birthDate');
+    if(!birthDate){ state.formError='Укажите дату родов.'; render(); return; }
+    const aliveCount = parseInt(fd.get('aliveCount')||'0', 10) || 0;
+    const stillbornCount = parseInt(fd.get('stillbornCount')||'0', 10) || 0;
+    const notes = (fd.get('notes')||'').trim();
+    const weights = fd.getAll('weight[]').map(v=>parseFloat(v)).filter(v=>!isNaN(v));
+    const pet = findPet(state.currentPetId);
+    const preg = findPreg(pet, state.currentPregId);
+    preg.actualBirthDate = birthDate;
+    preg.litter = { aliveCount, stillbornCount, weights, notes };
+    saveData();
+    goto('pregDetail', {currentPetId: pet.id, currentPregId: preg.id, detailCalYear:null});
+    return;
+  }
+
+  if(type==='github-form'){
+    const token = (fd.get('token')||'').trim();
+    const repo = (fd.get('repo')||'').trim();
+    const path = (fd.get('path')||'').trim() || 'vetcal-data.json';
+    const branch = (fd.get('branch')||'').trim() || 'main';
+    if(!token || !repo){ alert('Укажите токен и репозиторий в формате owner/repo.'); return; }
+    saveGithubConfig({ token, repo, path, branch });
+    state.githubSha = null;
+    alert('Настройки сохранены.');
+    render();
+    return;
+  }
+
+  if(type==='trip-form'){
+    const title = (fd.get('title')||'').trim();
+    const startDate = fd.get('startDate');
+    const endDate = fd.get('endDate');
+    if(!title || !startDate || !endDate){ state.formError='Заполните все поля.'; render(); return; }
+    if(endDate < startDate){ state.formError='Дата окончания раньше даты начала.'; render(); return; }
+    state.data.trips = state.data.trips || [];
+    if(state.editingTripId){
+      const trip = state.data.trips.find(tr=>tr.id===state.editingTripId);
+      trip.title = title; trip.startDate = startDate; trip.endDate = endDate;
+    } else {
+      state.data.trips.push({ id: uid(), title, startDate, endDate });
+    }
+    saveData();
+    state.view = state.returnView;
+    state.formError = '';
+    render();
+    return;
+  }
+});
+
+/* =========================================================
+   Инициализация
+   ========================================================= */
+render();
+
+// Если локальных данных нет (например, после очистки кэша) и настроен GitHub — пробуем восстановить бэкап автоматически
+(function initGithubAutoRestore(){
+  const cfg = getGithubConfig();
+  if(cfg && state.data.pets.length===0){
+    pullFromGithub().then(result=>{
+      if(result.ok && state.data.pets.length){
+        render();
+      }
+    });
+  }
+})();
+</script>
+</body>
+</html>
