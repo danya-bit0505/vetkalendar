@@ -1,65 +1,72 @@
-// Меняй эту версию при каждом деплое с изменениями в закэшированных файлах —
-// иначе браузер продолжит отдавать старые файлы из кэша.
-const CACHE_NAME = 'app-cache-v1';
+// ВетКалендарь — service worker
+// Кэширует оболочку приложения для офлайн-работы. Данные питомцев хранятся
+// отдельно (localStorage + GitHub-синк), sw отвечает только за файлы.
 
-// Всё, что нужно для полностью офлайн-работы приложения.
-// Пути — относительные, от корня где лежит sw.js.
+const CACHE_VERSION = 'v1';
+const CACHE_NAME = `vetkalendar-${CACHE_VERSION}`;
+
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css',
-  './js/app.js',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icon-192.png',
+  './icon-512.png',
+  './apple-touch-icon.png',
+  './favicon.png',
 ];
 
-// Установка: кладём app shell в кэш
+// Установка — кладём оболочку приложения в кэш
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(APP_SHELL))
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting(); // новый SW активируется сразу, не дожидаясь закрытия всех вкладок
 });
 
-// Активация: чистим старые версии кэша
+// Активация — удаляем кэши старых версий
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
-      )
-    )
+    caches.keys()
+      .then((keys) => Promise.all(
+        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Fetch: cache-first для app shell, с фоллбеком на сеть для всего остального
+// Запросы — cache-first с фоновым обновлением и офлайн-фоллбеком
 self.addEventListener('fetch', (event) => {
-  // Не трогаем не-GET запросы (например POST к GitHub API)
-  if (event.request.method !== 'GET') return;
+  const req = event.request;
+  if (req.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-
-      return fetch(event.request)
-        .then((response) => {
-          // Кэшируем новые запрошенные ресурсы на лету (например картинки, добавленные позже)
-          if (response.ok && response.type === 'basic') {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
+  // Навигация по страницам приложения — при отсутствии сети отдаём закэшированный index.html
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put('./index.html', copy));
+          return res;
         })
-        .catch(() => {
-          // Офлайн и файла нет в кэше — можно вернуть index.html как фоллбек для навигации
-          if (event.request.mode === 'navigate') {
-            return caches.match('./index.html');
+        .catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
+  // Остальное (иконки, манифест, шрифты) — сначала кэш, параллельно обновляем в фоне
+  event.respondWith(
+    caches.match(req).then((cached) => {
+      const fetchPromise = fetch(req)
+        .then((res) => {
+          if (res && res.status === 200) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(req, copy));
           }
-        });
+          return res;
+        })
+        .catch(() => cached);
+      return cached || fetchPromise;
     })
   );
 });

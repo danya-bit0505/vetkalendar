@@ -1865,6 +1865,19 @@ render();
     });
   }
 })();
+
+// Регистрация service worker — офлайн-работа приложения
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js');
+  });
+  let swRefreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if(swRefreshing) return;
+    swRefreshing = true;
+    window.location.reload();
+  });
+}
 </script>
 </body>
 </html>
