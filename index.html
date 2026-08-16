@@ -239,6 +239,10 @@
   .cal-cell.finder-good{background:var(--green-pale);color:var(--green-dark);font-weight:600;cursor:pointer;}
   .cal-cell.finder-bad{background:var(--rust-pale);color:var(--rust);font-weight:600;cursor:pointer;}
   .cal-cell.finder-good:active,.cal-cell.finder-bad:active{opacity:.7;}
+  .cal-cell.clickable{cursor:pointer;}
+  .cal-cell.clickable:active{opacity:.65;}
+  .cal-cell.selected{box-shadow:inset 0 0 0 2px var(--ink);font-weight:700;}
+  .cal-cell.avg.selected{box-shadow:inset 0 0 0 2px #fff;}
   .cal-cell .dot{position:absolute;bottom:2px;width:4px;height:4px;border-radius:50%;background:var(--rust);}
   .cal-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:.7rem;color:var(--ink-soft);}
   .cal-legend .li{display:flex;align-items:center;gap:5px;}
@@ -247,6 +251,12 @@
   .sw-mating{background:var(--surface);box-shadow:inset 0 0 0 2px var(--green);}
   .sw-avg{background:var(--green);}
   .sw-dot{background:var(--rust);border-radius:50%;width:6px;height:6px;margin:2px;}
+  .day-panel{
+    margin-top:14px;padding:12px 13px;border-radius:10px;
+    background:var(--surface-2);border:1px solid var(--line);
+    font-size:.82rem;line-height:1.3;
+  }
+  .day-panel .dp-date{font-weight:600;font-size:.86rem;}
 
   /* ---------- Поездки ---------- */
   .trip-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);}
@@ -599,8 +609,10 @@ const state = {
   formError: '',
   detailCalYear: null,
   detailCalMonth: null,
+  detailSelectedDate: null,
   allCalYear: null,
   allCalMonth: null,
+  allSelectedDate: null,
   finderCalYear: null,
   finderCalMonth: null,
   calendarAllHidden: new Set(),
@@ -1028,16 +1040,34 @@ function renderDetailCalendar(pet, pred, checklist){
 
   const cellsHtml = cells.map(d=>{
     const dStr = toInputValue(d);
-    const cls = [];
+    const cls = ['clickable'];
     if(d.getUTCMonth()!==month) cls.push('pad');
     if(dStr>=matingStartStr && dStr<=matingEndStr) cls.push('mating');
     if(dStr>=minStr && dStr<=maxStr) cls.push('window');
     if(dStr===avgStr) cls.push('avg');
     if(dStr===todayStr) cls.push('today');
+    if(dStr===state.detailSelectedDate) cls.push('selected');
     const hasCheck = checkMap[dStr];
-    const title = hasCheck ? hasCheck.join(', ') : '';
-    return `<div class="cal-cell ${cls.join(' ')}" ${title?`title="${title}"`:''}>${d.getUTCDate()}${hasCheck?'<span class="dot"></span>':''}</div>`;
+    return `<div class="cal-cell ${cls.join(' ')}" data-action="select-cal-day" data-cal="detail" data-date="${dStr}">${d.getUTCDate()}${hasCheck?'<span class="dot"></span>':''}</div>`;
   }).join('');
+
+  // Панель с деталями выбранного дня
+  let dayPanel = '';
+  if(state.detailSelectedDate){
+    const dStr = state.detailSelectedDate;
+    const tags = [];
+    if(dStr>=matingStartStr && dStr<=matingEndStr) tags.push('💚 День вязки');
+    if(dStr===avgStr) tags.push('⭐ Наиболее вероятная дата родов');
+    else if(dStr>=minStr && dStr<=maxStr) tags.push('🟡 Окно ожидаемых родов');
+    (checkMap[dStr]||[]).forEach(label=> tags.push(`📍 ${label}`));
+    if(dStr===todayStr) tags.push('📅 Сегодня');
+    const body = tags.length ? tags.map(tg=>`<div style="margin-top:6px;">${tg}</div>`).join('') : `<div style="margin-top:6px;color:var(--ink-faint);">Обычный день — ничего не запланировано.</div>`;
+    dayPanel = `
+      <div class="day-panel">
+        <div class="dp-date">${formatDateLong(parseDate(dStr))}</div>
+        ${body}
+      </div>`;
+  }
 
   return `
     <div class="cal-card">
@@ -1054,6 +1084,7 @@ function renderDetailCalendar(pet, pred, checklist){
         <div class="li"><span class="sw sw-avg"></span>Вероятная дата</div>
         <div class="li"><span class="sw-dot"></span>Чек-поинт</div>
       </div>
+      ${dayPanel}
     </div>`;
 }
 
@@ -1085,10 +1116,11 @@ function renderAllCalendar(){
 
   const cellsHtml = cells.map(d=>{
     const dStr = toInputValue(d);
-    const cls = [];
+    const cls = ['clickable'];
     if(d.getUTCMonth()!==month) cls.push('pad');
     if(dStr===todayStr) cls.push('today');
     if(isTripDay(dStr)) cls.push('trip-day');
+    if(dStr===state.allSelectedDate) cls.push('selected');
     let dots = '';
     let star = '';
     active.forEach(a=>{
@@ -1099,8 +1131,33 @@ function renderAllCalendar(){
       else if(dStr>=minStr && dStr<=maxStr){ dots += `<span style="width:5px;height:5px;border-radius:50%;background:${a.color};display:inline-block;margin:0 1px;"></span>`; }
     });
     const marks = star || (dots ? `<div style="position:absolute;bottom:2px;display:flex;">${dots}</div>` : '');
-    return `<div class="cal-cell ${cls.join(' ')}">${d.getUTCDate()}${marks}</div>`;
+    return `<div class="cal-cell ${cls.join(' ')}" data-action="select-cal-day" data-cal="all" data-date="${dStr}">${d.getUTCDate()}${marks}</div>`;
   }).join('');
+
+  // Панель с деталями выбранного дня
+  let dayPanel = '';
+  if(state.allSelectedDate){
+    const dStr = state.allSelectedDate;
+    const tags = [];
+    active.forEach(a=>{
+      if(state.calendarAllHidden.has(a.pet.id)) return;
+      const minStr = toInputValue(a.pred.minDate), maxStr = toInputValue(a.pred.maxDate);
+      const avgStr = toInputValue(a.pred.avgDate);
+      const nm = `${SPECIES[a.pet.species].icon} ${a.pet.name}`;
+      if(dStr===avgStr) tags.push(`⭐ ${nm} — наиболее вероятная дата родов`);
+      else if(dStr>=minStr && dStr<=maxStr) tags.push(`🟡 ${nm} — в окне ожидаемых родов`);
+    });
+    (state.data.trips||[]).forEach(tr=>{
+      if(dStr>=tr.startDate && dStr<=tr.endDate) tags.push(`✈️ Поездка «${tr.title}»`);
+    });
+    if(dStr===todayStr) tags.push('📅 Сегодня');
+    const body = tags.length ? tags.map(tg=>`<div style="margin-top:6px;">${tg}</div>`).join('') : `<div style="margin-top:6px;color:var(--ink-faint);">Ничего не запланировано.</div>`;
+    dayPanel = `
+      <div class="day-panel">
+        <div class="dp-date">${formatDateLong(parseDate(dStr))}</div>
+        ${body}
+      </div>`;
+  }
 
   return `
     <div class="cal-card" style="margin-top:0;">
@@ -1115,6 +1172,7 @@ function renderAllCalendar(){
         ${legend}
         <div class="li"><span class="sw" style="box-shadow:inset 0 0 0 2px var(--gold);"></span>Поездка</div>
       </div>
+      ${dayPanel}
     </div>
     ${renderTripsListBlock()}`;
 }
@@ -1291,6 +1349,7 @@ function renderPregDetail(){
     const t = todayUTC();
     state.detailCalYear = t.getUTCFullYear();
     state.detailCalMonth = t.getUTCMonth();
+    state.detailSelectedDate = null;
     state._detailCalPregId = preg.id;
   }
 
@@ -1562,6 +1621,16 @@ document.addEventListener('click', (e)=>{
     let y = state[yKey], m = state[mKey] + dir;
     if(m<0){ m=11; y--; } if(m>11){ m=0; y++; }
     state[yKey]=y; state[mKey]=m;
+    if(target==='detail') state.detailSelectedDate = null;
+    if(target==='all') state.allSelectedDate = null;
+    render();
+    return;
+  }
+  if(action==='select-cal-day'){
+    const cal = t.dataset.cal;
+    const date = t.dataset.date;
+    if(cal==='detail') state.detailSelectedDate = (state.detailSelectedDate===date) ? null : date;
+    else if(cal==='all') state.allSelectedDate = (state.allSelectedDate===date) ? null : date;
     render();
     return;
   }
