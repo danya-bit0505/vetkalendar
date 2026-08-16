@@ -589,7 +589,7 @@ function uid(){ return Date.now().toString(36) + Math.random().toString(36).slic
 const state = {
   data: loadData(),
   view: 'list', // list | petForm | petPage | pregForm | pregDetail | litterForm | calendarAll | settings | matingFinder | tripForm
-  returnView: 'list',
+  viewStack: [],
   currentPetId: null,
   currentPregId: null,
   editingPetId: null,
@@ -609,9 +609,15 @@ const state = {
 };
 
 function goto(view, extra){
-  state.returnView = state.view;
+  state.viewStack.push(state.view);
   if(extra) Object.assign(state, extra);
   state.view = view;
+  state.formError = '';
+  render();
+}
+
+function goBack(){
+  state.view = state.viewStack.pop() || 'list';
   state.formError = '';
   render();
 }
@@ -1505,9 +1511,9 @@ document.addEventListener('click', (e)=>{
   const action = t.dataset.action;
 
   if(action==='nav-list'){ state.view='list'; render(); return; }
-  if(action==='nav-calendar'){ goto('calendarAll'); return; }
+  if(action==='nav-calendar'){ state.view='calendarAll'; render(); return; }
   if(action==='nav-settings'){ state.view='settings'; render(); return; }
-  if(action==='back'){ state.view = state.returnView; render(); return; }
+  if(action==='back'){ goBack(); return; }
 
   if(action==='add-pet'){ goto('petForm', {editingPetId:null}); return; }
   if(action==='edit-pet'){ goto('petForm', {editingPetId:t.dataset.petId}); return; }
@@ -1769,9 +1775,7 @@ document.addEventListener('submit', (e)=>{
       state.data.trips.push({ id: uid(), title, startDate, endDate });
     }
     saveData();
-    state.view = state.returnView;
-    state.formError = '';
-    render();
+    goBack();
     return;
   }
 });
