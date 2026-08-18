@@ -618,6 +618,7 @@ const state = {
   calendarAllHidden: new Set(),
   githubSha: null,
   syncStatus: null,
+  storagePersisted: null, // null=проверяется, true/false — после запроса
 };
 
 function goto(view, extra){
@@ -1437,6 +1438,9 @@ function renderSettings(){
           <input type="file" id="import-file-input" accept="application/json" style="display:none;">
         </label>
       </div>
+      <div class="hint" style="margin-top:12px;">
+        Защита от очистки браузером: ${state.storagePersisted===null ? 'проверяется…' : (state.storagePersisted ? 'включена ✓' : 'не поддерживается браузером')}
+      </div>
     </div>`;
 }
 
@@ -1878,6 +1882,24 @@ if('serviceWorker' in navigator){
     window.location.reload();
   });
 }
+
+// Запрос постоянного хранилища — просим браузер не чистить localStorage/кэш при нехватке места
+async function requestPersistentStorage(){
+  if(!(navigator.storage && navigator.storage.persist)){
+    state.storagePersisted = false;
+    return;
+  }
+  try{
+    let persisted = await navigator.storage.persisted();
+    if(!persisted) persisted = await navigator.storage.persist();
+    state.storagePersisted = persisted;
+  }catch(e){
+    state.storagePersisted = false;
+  }
+  if(state.view==='settings') render();
+}
+requestPersistentStorage();
+
 </script>
 </body>
 </html>
