@@ -258,6 +258,20 @@
   }
   .day-panel .dp-date{font-weight:600;font-size:.86rem;}
 
+  /* ---------- Переключатели питомцев на общем календаре ---------- */
+  .pet-toggle-row{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:18px;}
+  .pet-toggle{
+    display:flex;align-items:center;gap:8px;
+    padding:11px 15px;border-radius:12px;
+    border:2px solid var(--pt-color, var(--line));
+    background:var(--surface);color:var(--ink);
+    font-size:.86rem;font-weight:600;
+  }
+  .pet-toggle .pt-dot{width:11px;height:11px;border-radius:50%;background:var(--pt-color, var(--ink-faint));flex-shrink:0;}
+  .pet-toggle.off{border-color:var(--line);color:var(--ink-faint);background:var(--surface-2);opacity:.65;}
+  .pet-toggle.off .pt-dot{background:var(--ink-faint);}
+  .pet-toggle:active{opacity:.6;}
+
   /* ---------- Поездки ---------- */
   .trip-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);}
   .trip-item:last-child{border-bottom:none;}
@@ -327,6 +341,7 @@ const MONTHS_RU = ['января','февраля','марта','апреля','
 const MONTHS_RU_NOM = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const MONTHS_RU_SHORT = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
 const WEEKDAYS_RU = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const WEEKDAYS_FULL_RU = ['понедельник','вторник','среда','четверг','пятница','суббота','воскресенье'];
 const ACCENTS = ['#3C6E47','#A6462A','#C99A2E','#4C6B8A','#7D4F9A','#B5533C'];
 
 function parseDate(str){
@@ -454,16 +469,113 @@ function previewPrediction(pet, matingStart, matingEnd){
   return computePrediction(fakePreg, pet.species, correction);
 }
 
+// N-e (или последнее) вхождение дня недели в заданном месяце. weekday: 0=Пн..6=Вс. position: 1..4 или -1 (последний)
+function nthWeekdayOfMonth(year, month, position, weekday){
+  const jsWeekdayTarget = (weekday + 1) % 7; // наш Пн=0..Вс=6 -> JS вс=0..сб=6
+  if(position === -1){
+    let d = new Date(Date.UTC(year, month+1, 0)); // последний день месяца
+    while(d.getUTCDay() !== jsWeekdayTarget){ d = addDays(d, -1); }
+    return d;
+  }
+  let d = new Date(Date.UTC(year, month, 1));
+  let count = 0;
+  while(d.getUTCMonth() === month){
+    if(d.getUTCDay() === jsWeekdayTarget){
+      count++;
+      if(count === position) return d;
+    }
+    d = addDays(d, 1);
+  }
+  return null;
+}
+
+// Проверяет, попадает ли дата (строка YYYY-MM-DD) в поездку — с учётом повторения
+function tripMatchesDate(trip, dStr){
+  const repeat = trip.repeat || 'none';
+
+  if(repeat === 'none'){
+    return dStr >= trip.startDate && dStr <= trip.endDate;
+  }
+
+  const d = parseDate(dStr);
+
+  if(repeat === 'weekly'){
+    const ourDay = (d.getUTCDay() + 6) % 7; // Пн=0..Вс=6
+    let offset = ourDay - trip.weeklyStartDay;
+    if(offset < 0) offset += 7;
+    return offset < trip.durationDays;
+  }
+
+  if(repeat === 'yearly'){
+    const val = d.getUTCMonth()*100 + d.getUTCDate();
+    const sVal = trip.yearlyStartMonth*100 + trip.yearlyStartDay;
+    const eVal = trip.yearlyEndMonth*100 + trip.yearlyEndDay;
+    if(sVal <= eVal) return val >= sVal && val <= eVal;
+    return val >= sVal || val <= eVal; // диапазон через новый год
+  }
+
+  if(repeat === 'monthly'){
+    if(trip.monthlyMode === 'dayOfMonth'){
+      const day = d.getUTCDate();
+      const s = trip.monthlyDayStart, e = trip.monthlyDayEnd;
+      if(s <= e) return day >= s && day <= e;
+      return day >= s || day <= e; // диапазон через конец месяца
+    }
+    // weekdayOfMonth: проверяем текущий и предыдущий месяц (на случай если окно поездки перескакивает через границу месяца)
+    const year = d.getUTCFullYear(), month = d.getUTCMonth();
+    for(const mOffset of [0, -1]){
+      let yy = year, mm = month + mOffset;
+      if(mm < 0){ mm = 11; yy--; }
+      const anchor = nthWeekdayOfMonth(yy, mm, trip.monthlyPosition, trip.monthlyWeekday);
+      if(!anchor) continue;
+      const diff = diffDays(anchor, d);
+      if(diff >= 0 && diff < trip.durationDays) return true;
+    }
+    return false;
+  }
+  return false;
+}
+
 // Список поездок, пересекающихся с окном [minDate, maxDate]
 function tripsOverlapping(minDate, maxDate){
-  return (state.data.trips||[]).filter(tr=>{
-    const ts = parseDate(tr.startDate), te = parseDate(tr.endDate);
-    return minDate.getTime() <= te.getTime() && maxDate.getTime() >= ts.getTime();
-  });
+  const trips = state.data.trips || [];
+  if(!trips.length) return [];
+  const totalDays = diffDays(minDate, maxDate) + 1;
+  const result = [];
+  for(const tr of trips){
+    let matched = false;
+    for(let i=0; i<totalDays; i++){
+      if(tripMatchesDate(tr, toInputValue(addDays(minDate, i)))){ matched = true; break; }
+    }
+    if(matched) result.push(tr);
+  }
+  return result;
 }
 
 function isTripDay(dStr){
-  return (state.data.trips||[]).some(tr=> dStr>=tr.startDate && dStr<=tr.endDate);
+  return (state.data.trips||[]).some(tr=> tripMatchesDate(tr, dStr));
+}
+
+// Человекочитаемое описание расписания поездки
+function formatTripSchedule(trip){
+  const repeat = trip.repeat || 'none';
+  if(repeat === 'none'){
+    return `${formatDateShort(parseDate(trip.startDate))} – ${formatDateShort(parseDate(trip.endDate))}`;
+  }
+  if(repeat === 'weekly'){
+    return `Еженедельно: начало — ${WEEKDAYS_FULL_RU[trip.weeklyStartDay]}, ${trip.durationDays} ${pluralDays(trip.durationDays)}`;
+  }
+  if(repeat === 'monthly'){
+    if(trip.monthlyMode === 'dayOfMonth'){
+      return `Ежемесячно: с ${trip.monthlyDayStart} по ${trip.monthlyDayEnd} число`;
+    }
+    const posLabel = trip.monthlyPosition===-1 ? 'последняя неделя' : `${trip.monthlyPosition}-я неделя`;
+    return `Ежемесячно: ${posLabel}, ${WEEKDAYS_FULL_RU[trip.monthlyWeekday]}, ${trip.durationDays} ${pluralDays(trip.durationDays)}`;
+  }
+  if(repeat === 'yearly'){
+    return `Ежегодно: ${trip.yearlyStartDay} ${MONTHS_RU[trip.yearlyStartMonth]} – ${trip.yearlyEndDay} ${MONTHS_RU[trip.yearlyEndMonth]}`;
+  }
+  return '';
 }
 
 /* =========================================================
@@ -1003,7 +1115,7 @@ function updateMatingWarning(){
   const conflicts = tripsOverlapping(pred.minDate, pred.maxDate);
   if(conflicts.length){
     warnEl.innerHTML = conflicts.map(tr=>`
-      <div class="overdue-banner">✈️ Ожидаемые роды (${formatDateShort(pred.minDate)}–${formatDateShort(pred.maxDate)}) пересекаются с поездкой «${tr.title}» (${formatDateShort(parseDate(tr.startDate))}–${formatDateShort(parseDate(tr.endDate))}).</div>`
+      <div class="overdue-banner">✈️ Ожидаемые роды (${formatDateShort(pred.minDate)}–${formatDateShort(pred.maxDate)}) пересекаются с поездкой «${tr.title}» (${formatTripSchedule(tr)}).</div>`
     ).join('');
   } else if((state.data.trips||[]).length){
     warnEl.innerHTML = `<div class="correction-note">✓ Конфликтов с поездками нет. Ожидаемые роды: ${formatDateShort(pred.minDate)}–${formatDateShort(pred.maxDate)}.</div>`;
@@ -1108,12 +1220,18 @@ function renderAllCalendar(){
     active.push({ pet, pred, color: ACCENTS[idx % ACCENTS.length] });
   });
 
-  const legend = active.length ? active.map(a=>{
-    const hidden = state.calendarAllHidden.has(a.pet.id);
-    return `<div class="li" data-action="toggle-legend" data-pet-id="${a.pet.id}" style="cursor:pointer;opacity:${hidden?0.4:1};">
-      <span class="sw" style="background:${a.color};border-radius:50%;"></span>${SPECIES[a.pet.species].icon} ${a.pet.name}
-    </div>`;
-  }).join('') : `<div class="li">Нет активных беременностей</div>`;
+  // Крупные кнопки-переключатели видимости питомцев (вместо мелкой легенды)
+  const petToggleRow = active.length ? `
+    <div class="section-title" style="margin-bottom:8px;"><h3>Питомцы на календаре</h3></div>
+    <div class="pet-toggle-row">
+      ${active.map(a=>{
+        const hidden = state.calendarAllHidden.has(a.pet.id);
+        const hint = hidden ? `Показать ${a.pet.name} на календаре` : `Скрыть ${a.pet.name} с календаря`;
+        return `<button type="button" class="pet-toggle ${hidden?'off':''}" style="--pt-color:${a.color};" data-action="toggle-legend" data-pet-id="${a.pet.id}" title="${hint}" aria-label="${hint}">
+          <span class="pt-dot"></span>${SPECIES[a.pet.species].icon} ${a.pet.name}
+        </button>`;
+      }).join('')}
+    </div>` : '';
 
   const cellsHtml = cells.map(d=>{
     const dStr = toInputValue(d);
@@ -1149,7 +1267,7 @@ function renderAllCalendar(){
       else if(dStr>=minStr && dStr<=maxStr) tags.push(`🟡 ${nm} — в окне ожидаемых родов`);
     });
     (state.data.trips||[]).forEach(tr=>{
-      if(dStr>=tr.startDate && dStr<=tr.endDate) tags.push(`✈️ Поездка «${tr.title}»`);
+      if(tripMatchesDate(tr, dStr)) tags.push(`✈️ Поездка «${tr.title}»`);
     });
     if(dStr===todayStr) tags.push('📅 Сегодня');
     const body = tags.length ? tags.map(tg=>`<div style="margin-top:6px;">${tg}</div>`).join('') : `<div style="margin-top:6px;color:var(--ink-faint);">Ничего не запланировано.</div>`;
@@ -1161,6 +1279,7 @@ function renderAllCalendar(){
   }
 
   return `
+    ${petToggleRow}
     <div class="cal-card" style="margin-top:0;">
       <div class="cal-nav">
         <button data-action="cal-prev" data-cal="all">‹</button>
@@ -1170,7 +1289,8 @@ function renderAllCalendar(){
       <div class="cal-weekdays">${WEEKDAYS_RU.map(w=>`<span>${w}</span>`).join('')}</div>
       <div class="cal-grid">${cellsHtml}</div>
       <div class="cal-legend">
-        ${legend}
+        <div class="li"><span class="sw" style="border-radius:50%;background:var(--ink-faint);"></span>Точка — окно родов питомца</div>
+        <div class="li">★ — вероятная дата родов</div>
         <div class="li"><span class="sw" style="box-shadow:inset 0 0 0 2px var(--gold);"></span>Поездка</div>
       </div>
       ${dayPanel}
@@ -1448,12 +1568,18 @@ function renderSettings(){
    Рендер: поездки (общий список + форма)
    ========================================================= */
 function renderTripsListBlock(returnAction){
-  const trips = (state.data.trips||[]).slice().sort((a,b)=> a.startDate.localeCompare(b.startDate));
+  const trips = (state.data.trips||[]).slice().sort((a,b)=>{
+    const ra = (a.repeat && a.repeat!=='none') ? 1 : 0;
+    const rb = (b.repeat && b.repeat!=='none') ? 1 : 0;
+    if(ra!==rb) return ra-rb;
+    if(ra===0) return a.startDate.localeCompare(b.startDate);
+    return a.title.localeCompare(b.title, 'ru');
+  });
   const list = trips.length ? trips.map(tr=>`
     <div class="trip-item">
       <div class="ti-txt">
         <div class="ti-title">✈️ ${tr.title}</div>
-        <div class="ti-dates">${formatDateShort(parseDate(tr.startDate))} – ${formatDateShort(parseDate(tr.endDate))}</div>
+        <div class="ti-dates">${formatTripSchedule(tr)}</div>
       </div>
       <div class="ti-actions">
         <button class="icon-btn" data-action="edit-trip" data-trip-id="${tr.id}">✏️</button>
@@ -1471,8 +1597,29 @@ function renderTripsListBlock(returnAction){
 function renderTripForm(){
   const editing = state.editingTripId ? (state.data.trips||[]).find(tr=>tr.id===state.editingTripId) : null;
   const title = editing ? editing.title : '';
-  const startDate = editing ? editing.startDate : '';
-  const endDate = editing ? editing.endDate : '';
+  const repeat = editing ? (editing.repeat||'none') : 'none';
+
+  const startDate = (editing && repeat==='none') ? editing.startDate : '';
+  const endDate = (editing && repeat==='none') ? editing.endDate : '';
+
+  const weeklyStartDay = (editing && repeat==='weekly') ? editing.weeklyStartDay : 4; // пятница по умолчанию
+  const weeklyDuration = (editing && repeat==='weekly') ? editing.durationDays : 2;
+
+  const monthlyMode = (editing && repeat==='monthly') ? (editing.monthlyMode||'dayOfMonth') : 'dayOfMonth';
+  const monthlyDayStart = (editing && repeat==='monthly' && monthlyMode==='dayOfMonth') ? editing.monthlyDayStart : '';
+  const monthlyDayEnd = (editing && repeat==='monthly' && monthlyMode==='dayOfMonth') ? editing.monthlyDayEnd : '';
+  const monthlyPosition = (editing && repeat==='monthly' && monthlyMode==='weekdayOfMonth') ? editing.monthlyPosition : 1;
+  const monthlyWeekday = (editing && repeat==='monthly' && monthlyMode==='weekdayOfMonth') ? editing.monthlyWeekday : 5; // суббота
+  const monthlyDuration = (editing && repeat==='monthly' && monthlyMode==='weekdayOfMonth') ? editing.durationDays : 2;
+
+  const yearlyStartMonth = (editing && repeat==='yearly') ? editing.yearlyStartMonth : 5;
+  const yearlyStartDay = (editing && repeat==='yearly') ? editing.yearlyStartDay : 1;
+  const yearlyEndMonth = (editing && repeat==='yearly') ? editing.yearlyEndMonth : 5;
+  const yearlyEndDay = (editing && repeat==='yearly') ? editing.yearlyEndDay : 14;
+
+  const weekdayOptions = (selected)=> WEEKDAYS_FULL_RU.map((w,i)=>`<option value="${i}" ${i===selected?'selected':''}>${w.charAt(0).toUpperCase()+w.slice(1)}</option>`).join('');
+  const monthOptions = (selected)=> MONTHS_RU_NOM.map((m,i)=>`<option value="${i}" ${i===selected?'selected':''}>${m}</option>`).join('');
+
   return `
     ${state.formError ? `<div class="form-error">${state.formError}</div>` : ''}
     <form data-form="trip-form">
@@ -1480,10 +1627,83 @@ function renderTripForm(){
         <label>Название поездки</label>
         <input type="text" name="title" value="${title}" placeholder="Например, отпуск в Сочи" required>
       </div>
-      <div class="field-row">
-        <div class="field"><label>Начало</label><input type="date" name="startDate" value="${startDate}" required></div>
-        <div class="field"><label>Конец</label><input type="date" name="endDate" value="${endDate}" required></div>
+
+      <div class="field">
+        <label>Повторение</label>
+        <select name="repeat" id="trip-repeat-select">
+          <option value="none" ${repeat==='none'?'selected':''}>Не повторяется</option>
+          <option value="weekly" ${repeat==='weekly'?'selected':''}>Каждую неделю</option>
+          <option value="monthly" ${repeat==='monthly'?'selected':''}>Каждый месяц</option>
+          <option value="yearly" ${repeat==='yearly'?'selected':''}>Каждый год</option>
+        </select>
       </div>
+
+      <div id="repeat-none-fields" class="field-row" style="${repeat==='none'?'':'display:none;'}">
+        <div class="field"><label>Начало</label><input type="date" name="startDate" value="${startDate}"></div>
+        <div class="field"><label>Конец</label><input type="date" name="endDate" value="${endDate}"></div>
+      </div>
+
+      <div id="repeat-weekly-fields" style="${repeat==='weekly'?'':'display:none;'}">
+        <div class="field-row">
+          <div class="field"><label>День начала</label>
+            <select name="weeklyStartDay">${weekdayOptions(weeklyStartDay)}</select>
+          </div>
+          <div class="field"><label>Длительность (дней)</label>
+            <input type="number" min="1" max="7" name="weeklyDuration" value="${weeklyDuration}">
+          </div>
+        </div>
+        <div class="hint" style="margin:-10px 0 16px;">Например: начало — пятница, длительность 3 дня → поездка каждую неделю с пятницы по воскресенье.</div>
+      </div>
+
+      <div id="repeat-monthly-fields" style="${repeat==='monthly'?'':'display:none;'}">
+        <div class="field">
+          <label>Тип</label>
+          <select name="monthlyMode" id="monthly-mode-select">
+            <option value="dayOfMonth" ${monthlyMode==='dayOfMonth'?'selected':''}>По числам месяца</option>
+            <option value="weekdayOfMonth" ${monthlyMode==='weekdayOfMonth'?'selected':''}>По дню недели</option>
+          </select>
+        </div>
+        <div id="monthly-dayOfMonth-fields" class="field-row" style="${monthlyMode==='dayOfMonth'?'':'display:none;'}">
+          <div class="field"><label>С числа</label><input type="number" min="1" max="31" name="monthlyDayStart" value="${monthlyDayStart}"></div>
+          <div class="field"><label>По число</label><input type="number" min="1" max="31" name="monthlyDayEnd" value="${monthlyDayEnd}"></div>
+        </div>
+        <div id="monthly-weekdayOfMonth-fields" style="${monthlyMode==='weekdayOfMonth'?'':'display:none;'}">
+          <div class="field-row">
+            <div class="field"><label>Неделя месяца</label>
+              <select name="monthlyPosition">
+                <option value="1" ${monthlyPosition===1?'selected':''}>1-я</option>
+                <option value="2" ${monthlyPosition===2?'selected':''}>2-я</option>
+                <option value="3" ${monthlyPosition===3?'selected':''}>3-я</option>
+                <option value="4" ${monthlyPosition===4?'selected':''}>4-я</option>
+                <option value="-1" ${monthlyPosition===-1?'selected':''}>Последняя</option>
+              </select>
+            </div>
+            <div class="field"><label>День недели</label>
+              <select name="monthlyWeekday">${weekdayOptions(monthlyWeekday)}</select>
+            </div>
+          </div>
+          <div class="field"><label>Длительность (дней)</label><input type="number" min="1" max="31" name="monthlyDuration" value="${monthlyDuration}"></div>
+          <div class="hint" style="margin-top:-10px;">Например: 1-я неделя, суббота, 2 дня → первые выходные каждого месяца.</div>
+        </div>
+      </div>
+
+      <div id="repeat-yearly-fields" style="${repeat==='yearly'?'':'display:none;'}">
+        <div class="field">
+          <label>Начало</label>
+          <div class="field-row">
+            <select name="yearlyStartMonth">${monthOptions(yearlyStartMonth)}</select>
+            <input type="number" min="1" max="31" name="yearlyStartDay" value="${yearlyStartDay}" placeholder="день">
+          </div>
+        </div>
+        <div class="field">
+          <label>Конец</label>
+          <div class="field-row">
+            <select name="yearlyEndMonth">${monthOptions(yearlyEndMonth)}</select>
+            <input type="number" min="1" max="31" name="yearlyEndDay" value="${yearlyEndDay}" placeholder="день">
+          </div>
+        </div>
+      </div>
+
       <div class="form-actions"><button type="submit" class="btn btn-primary">Сохранить</button></div>
     </form>`;
 }
@@ -1714,6 +1934,18 @@ document.addEventListener('change', (e)=>{
   if(e.target.name==='matingStart' || e.target.name==='matingEnd'){
     updateMatingWarning();
   }
+  if(e.target.id==='trip-repeat-select'){
+    const v = e.target.value;
+    document.getElementById('repeat-none-fields').style.display = v==='none' ? '' : 'none';
+    document.getElementById('repeat-weekly-fields').style.display = v==='weekly' ? '' : 'none';
+    document.getElementById('repeat-monthly-fields').style.display = v==='monthly' ? '' : 'none';
+    document.getElementById('repeat-yearly-fields').style.display = v==='yearly' ? '' : 'none';
+  }
+  if(e.target.id==='monthly-mode-select'){
+    const v = e.target.value;
+    document.getElementById('monthly-dayOfMonth-fields').style.display = v==='dayOfMonth' ? '' : 'none';
+    document.getElementById('monthly-weekdayOfMonth-fields').style.display = v==='weekdayOfMonth' ? '' : 'none';
+  }
   if(e.target.id==='import-file-input'){
     const file = e.target.files[0];
     if(!file) return;
@@ -1836,16 +2068,56 @@ document.addEventListener('submit', (e)=>{
 
   if(type==='trip-form'){
     const title = (fd.get('title')||'').trim();
-    const startDate = fd.get('startDate');
-    const endDate = fd.get('endDate');
-    if(!title || !startDate || !endDate){ state.formError='Заполните все поля.'; render(); return; }
-    if(endDate < startDate){ state.formError='Дата окончания раньше даты начала.'; render(); return; }
+    const repeat = fd.get('repeat') || 'none';
+    if(!title){ state.formError='Укажите название поездки.'; render(); return; }
+
+    const tripData = { title, repeat };
+
+    if(repeat==='none'){
+      const startDate = fd.get('startDate'), endDate = fd.get('endDate');
+      if(!startDate || !endDate){ state.formError='Укажите даты начала и конца.'; render(); return; }
+      if(endDate < startDate){ state.formError='Дата окончания раньше даты начала.'; render(); return; }
+      tripData.startDate = startDate;
+      tripData.endDate = endDate;
+    } else if(repeat==='weekly'){
+      const weeklyStartDay = parseInt(fd.get('weeklyStartDay'), 10);
+      const durationDays = parseInt(fd.get('weeklyDuration'), 10);
+      if(isNaN(weeklyStartDay) || isNaN(durationDays) || durationDays<1){ state.formError='Заполните день недели и длительность.'; render(); return; }
+      tripData.weeklyStartDay = weeklyStartDay;
+      tripData.durationDays = clamp(durationDays, 1, 7);
+    } else if(repeat==='monthly'){
+      const monthlyMode = fd.get('monthlyMode') || 'dayOfMonth';
+      tripData.monthlyMode = monthlyMode;
+      if(monthlyMode==='dayOfMonth'){
+        const s = parseInt(fd.get('monthlyDayStart'), 10), e = parseInt(fd.get('monthlyDayEnd'), 10);
+        if(isNaN(s) || isNaN(e) || s<1 || s>31 || e<1 || e>31){ state.formError='Укажите числа месяца от 1 до 31.'; render(); return; }
+        tripData.monthlyDayStart = s;
+        tripData.monthlyDayEnd = e;
+      } else {
+        const position = parseInt(fd.get('monthlyPosition'), 10);
+        const weekday = parseInt(fd.get('monthlyWeekday'), 10);
+        const durationDays = parseInt(fd.get('monthlyDuration'), 10);
+        if(isNaN(position) || isNaN(weekday) || isNaN(durationDays) || durationDays<1){ state.formError='Заполните неделю месяца, день недели и длительность.'; render(); return; }
+        tripData.monthlyPosition = position;
+        tripData.monthlyWeekday = weekday;
+        tripData.durationDays = durationDays;
+      }
+    } else if(repeat==='yearly'){
+      const sm = parseInt(fd.get('yearlyStartMonth'), 10), sd = parseInt(fd.get('yearlyStartDay'), 10);
+      const em = parseInt(fd.get('yearlyEndMonth'), 10), ed = parseInt(fd.get('yearlyEndDay'), 10);
+      if(isNaN(sm) || isNaN(sd) || isNaN(em) || isNaN(ed) || sd<1 || sd>31 || ed<1 || ed>31){ state.formError='Заполните даты начала и конца.'; render(); return; }
+      tripData.yearlyStartMonth = sm;
+      tripData.yearlyStartDay = sd;
+      tripData.yearlyEndMonth = em;
+      tripData.yearlyEndDay = ed;
+    }
+
     state.data.trips = state.data.trips || [];
     if(state.editingTripId){
-      const trip = state.data.trips.find(tr=>tr.id===state.editingTripId);
-      trip.title = title; trip.startDate = startDate; trip.endDate = endDate;
+      const idx = state.data.trips.findIndex(tr=>tr.id===state.editingTripId);
+      if(idx>=0) state.data.trips[idx] = { id: state.editingTripId, ...tripData };
     } else {
-      state.data.trips.push({ id: uid(), title, startDate, endDate });
+      state.data.trips.push({ id: uid(), ...tripData });
     }
     saveData();
     goBack();
