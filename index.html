@@ -2,8 +2,17 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ВетКалендарь — сроки родов питомцев</title>
+<script>
+  // Применяем сохранённый масштаб текста до отрисовки, чтобы не было мигания
+  (function(){
+    try{
+      var v = localStorage.getItem('vetcal_font_scale');
+      if(v) document.documentElement.style.setProperty('--font-scale', v);
+    }catch(e){}
+  })();
+</script>
 
 <!-- Установка на домашний экран -->
 <link rel="manifest" href="manifest.json">
@@ -36,9 +45,11 @@
     --radius-sm:8px;
     --radius:14px;
     --radius-lg:20px;
+    --font-scale:1;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
+  html{font-size:calc(16px * var(--font-scale));}
   body{
     background:var(--bg);
     color:var(--ink);
@@ -78,6 +89,10 @@
     display:flex;align-items:center;justify-content:center;font-size:1rem;color:var(--ink-soft);
   }
   .icon-btn:active{background:var(--surface-2);}
+  .icon-btn:disabled{opacity:.35;}
+  .font-size-control{display:flex;align-items:center;justify-content:center;gap:20px;}
+  .fs-btn{width:52px;height:52px;border-radius:14px;font-size:1.05rem;font-weight:700;color:var(--ink);}
+  .fs-value{font-family:'IBM Plex Mono',monospace;font-size:1rem;font-weight:600;min-width:52px;text-align:center;}
   .btn{
     border:none;border-radius:10px;padding:10px 16px;font-size:.88rem;font-weight:600;
     display:inline-flex;align-items:center;gap:6px;
@@ -706,6 +721,25 @@ function saveData(){
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
 /* =========================================================
+   Масштаб текста (регулятор в Настройках — жесты зума в приложении отключены)
+   ========================================================= */
+const FONT_SCALE_KEY = 'vetcal_font_scale';
+const FONT_SCALE_MIN = 0.8;
+const FONT_SCALE_MAX = 1.6;
+const FONT_SCALE_STEP = 0.1;
+
+function getFontScale(){
+  const v = parseFloat(localStorage.getItem(FONT_SCALE_KEY));
+  return (!isNaN(v) && v>=FONT_SCALE_MIN && v<=FONT_SCALE_MAX) ? v : 1;
+}
+function setFontScale(v){
+  v = clamp(Math.round(v*100)/100, FONT_SCALE_MIN, FONT_SCALE_MAX);
+  localStorage.setItem(FONT_SCALE_KEY, String(v));
+  document.documentElement.style.setProperty('--font-scale', v);
+  return v;
+}
+
+/* =========================================================
    Состояние приложения
    ========================================================= */
 const state = {
@@ -731,6 +765,7 @@ const state = {
   githubSha: null,
   syncStatus: null,
   storagePersisted: null, // null=проверяется, true/false — после запроса
+  fontScale: getFontScale(),
 };
 
 function goto(view, extra){
@@ -1529,6 +1564,15 @@ function renderSettings(){
     ? `${formatDateLong(new Date(lastSync))}, ${new Date(lastSync).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}`
     : 'ещё не выполнялась';
   return `
+    <div class="section-title"><h3>Размер текста</h3></div>
+    <div class="cal-card">
+      <div class="hint" style="margin-bottom:12px;">Масштабирование жестами в приложении отключено — меняйте размер текста здесь.</div>
+      <div class="font-size-control">
+        <button type="button" class="icon-btn fs-btn" data-action="font-size-dec" title="Уменьшить текст" aria-label="Уменьшить текст" ${state.fontScale<=FONT_SCALE_MIN?'disabled':''}>A−</button>
+        <span class="fs-value">${Math.round(state.fontScale*100)}%</span>
+        <button type="button" class="icon-btn fs-btn" data-action="font-size-inc" title="Увеличить текст" aria-label="Увеличить текст" ${state.fontScale>=FONT_SCALE_MAX?'disabled':''}>A+</button>
+      </div>
+    </div>
     <div class="section-title"><h3>Синхронизация с GitHub</h3></div>
     <div class="cal-card">
       <div class="hint" style="margin-bottom:14px;line-height:1.4;">Резервная копия данных в приватном репозитории — чтобы не потерять всё при очистке кэша браузера. Рассчитано на одно устройство, без синхронизации между несколькими телефонами.</div>
@@ -1906,6 +1950,17 @@ document.addEventListener('click', (e)=>{
     return;
   }
   if(action==='export-json'){ exportBackup(); return; }
+
+  if(action==='font-size-dec'){
+    state.fontScale = setFontScale(state.fontScale - FONT_SCALE_STEP);
+    render();
+    return;
+  }
+  if(action==='font-size-inc'){
+    state.fontScale = setFontScale(state.fontScale + FONT_SCALE_STEP);
+    render();
+    return;
+  }
 
   if(action==='open-finder'){ goto('matingFinder', {currentPetId:t.dataset.petId, finderCalYear:null, finderCalMonth:null}); return; }
   if(action==='pick-mating-date'){
