@@ -287,6 +287,20 @@
   .pet-toggle.off .pt-dot{background:var(--ink-faint);}
   .pet-toggle:active{opacity:.6;}
 
+  /* ---------- Плашка обновления ---------- */
+  .update-banner{
+    position:fixed;left:50%;transform:translateX(-50%);
+    bottom:calc(4.6rem + env(safe-area-inset-bottom, 0px));
+    width:calc(100% - 32px);max-width:488px;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:var(--ink);color:#fff;border-radius:12px;padding:10px 12px 10px 14px;
+    font-size:.84rem;font-weight:600;box-shadow:0 6px 20px rgba(34,48,30,.28);
+  }
+  .update-banner button{
+    background:var(--gold);color:var(--ink);border:none;border-radius:8px;
+    padding:7px 14px;font-size:.82rem;font-weight:700;
+  }
+
   /* ---------- Поездки ---------- */
   .trip-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);}
   .trip-item:last-child{border-bottom:none;}
@@ -2197,17 +2211,54 @@ render();
   }
 })();
 
-// Регистрация service worker — офлайн-работа приложения
+// Плашка «Доступна новая версия» — показывается, когда SW в фоне скачал свежий index.html
+function showUpdateBanner(){
+  if(document.getElementById('update-banner')) return;
+  const el = document.createElement('div');
+  el.id = 'update-banner';
+  el.className = 'update-banner';
+  el.innerHTML = '<span>Доступна новая версия</span><button type="button" id="update-banner-btn">Обновить</button>';
+  document.body.appendChild(el);
+  document.getElementById('update-banner-btn').addEventListener('click', () => window.location.reload());
+}
+
+// Регистрация service worker — запуск без интернета + фоновая проверка обновлений
 if('serviceWorker' in navigator){
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js');
-  });
+  const hadController = !!navigator.serviceWorker.controller; // false при самой первой установке
   let swRefreshing = false;
+  let lastUpdateCheck = Date.now();
+
+  // Просим браузер перепроверить sw.js и просим SW перепроверить index.html (офлайн — молча ничего не делает)
+  function checkForUpdates(){
+    lastUpdateCheck = Date.now();
+    navigator.serviceWorker.getRegistration().then((reg) => {
+      if(!reg) return;
+      reg.update().catch(() => {});
+      if(reg.active) reg.active.postMessage({ type: 'CHECK_UPDATE' });
+    }).catch(() => {});
+  }
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
+  });
+
+  // Новая версия sw.js взяла управление — перезагружаем один раз (на первой установке не перезагружаем)
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if(swRefreshing) return;
+    if(!hadController || swRefreshing) return;
     swRefreshing = true;
     window.location.reload();
   });
+
+  // SW сообщает, что в фоне скачан обновлённый index.html
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if(e.data && e.data.type === 'UPDATE_READY') showUpdateBanner();
+  });
+
+  // Проверка при возврате в приложение (не чаще раза в 5 минут) и раз в час, пока оно открыто
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible' && Date.now() - lastUpdateCheck > 5*60*1000) checkForUpdates();
+  });
+  setInterval(checkForUpdates, 60*60*1000);
 }
 
 // Запрос постоянного хранилища — просим браузер не чистить localStorage/кэш при нехватке места
