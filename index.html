@@ -663,6 +663,13 @@
     flex-shrink:0;
   }
 #updateBanner{display:none;position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;align-items:center;gap:10px;background:#0E7FA8;color:#fff;border-radius:14px;padding:12px 14px;font-size:16px;font-weight:700}
+#offlineScreen{display:none;position:fixed;left:0;right:0;top:0;bottom:0;z-index:10000;background:#F6F4EF;align-items:center;justify-content:center;padding:20px}
+#offlineScreen .box{width:100%;max-width:420px;background:#fff;border:2px solid #DCD8CE;border-radius:20px;padding:24px;text-align:center}
+#offlineScreen h2{margin:0 0 10px;font-size:26px;color:#D93A2B}
+#offlineScreen p{margin:0 0 20px;font-size:18px;line-height:1.4;color:#6B6F68}
+#offlineScreen button{display:block;width:100%;border:0;border-radius:14px;padding:16px;font-size:19px;font-weight:800;font-family:inherit;margin-top:12px}
+#offGoBtn{background:#0E8F63;color:#fff}
+#offCheckBtn{background:#0E7FA8;color:#fff}
 #updateBanner span{flex:1}
 #updateBtn{background:#fff;color:#0E7FA8;border:0;border-radius:10px;padding:10px 14px;font-size:16px;font-weight:800;font-family:inherit}
 #updateClose{background:transparent;color:#fff;border:0;font-size:22px;line-height:1;padding:4px 8px;font-family:inherit}
@@ -896,6 +903,7 @@
   </div>
 </div>
 
+<div id="offlineScreen"><div class="box"><h2>Вы в офлайн</h2><p id="offText">Нет связи с интернетом. Проверка товаров по базам не будет работать, но история и безопасная полка доступны.</p><button id="offGoBtn" type="button">Перейти в офлайн</button><button id="offCheckBtn" type="button">Проверить подключение</button></div></div>
 <div id="updateBanner" role="status"><span>Доступно обновление</span><button id="updateBtn" type="button">Обновить</button><button id="updateClose" type="button" aria-label="Закрыть">×</button></div>
 <script>
 // --- база спорных/вредных добавок ---
@@ -2075,6 +2083,30 @@ if('serviceWorker' in navigator){
     }
   });
 }
+// --- проверка связи при запуске: ~5 сек, при неудаче — экран «Вы в офлайн» ---
+(function(){
+  const scr = document.getElementById('offlineScreen');
+  const txt = document.getElementById('offText');
+  const checkBtn = document.getElementById('offCheckBtn');
+  const BASE_TXT = txt.textContent;
+  function ping(){
+    if(navigator.onLine === false) return Promise.resolve(false);
+    return fetch('./manifest.json?_ping=' + Date.now(), {cache:'no-store', signal: abortTimeoutSignal(5000)})
+      .then(r=> !!(r && r.ok)).catch(()=> false);
+  }
+  function show(){ scr.style.display = 'flex'; }
+  function hide(){ scr.style.display = 'none'; }
+  ping().then(ok=>{ if(!ok) show(); });
+  document.getElementById('offGoBtn').addEventListener('click', hide);
+  checkBtn.addEventListener('click', ()=>{
+    checkBtn.disabled = true; checkBtn.textContent = 'Проверяю…';
+    ping().then(ok=>{
+      checkBtn.disabled = false; checkBtn.textContent = 'Проверить подключение';
+      if(ok){ hide(); txt.textContent = BASE_TXT; }
+      else { txt.textContent = 'Связи всё ещё нет. Можно продолжить без интернета или проверить ещё раз.'; }
+    });
+  });
+})();
 (function(){
   const btn = document.getElementById('updateBtn');
   if(btn) btn.addEventListener('click', ()=>{ location.reload(); });

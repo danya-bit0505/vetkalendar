@@ -60,6 +60,8 @@ self.addEventListener('fetch', (event)=>{
   let url;
   try{ url = new URL(req.url); }catch(e){ return; }
   if(url.origin !== self.location.origin) return;
+  // проверка связи из приложения должна идти строго в сеть, а не из кэша
+  if(url.searchParams.has('_ping')) return;
 
   const isPage = req.mode === 'navigate' || url.pathname.endsWith('/') || url.pathname.endsWith('.html');
 
